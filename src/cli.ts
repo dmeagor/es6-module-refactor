@@ -1,22 +1,41 @@
-import Ast from "ts-simple-ast";
+import Ast, { SourceFile } from "ts-simple-ast";
 import * as _ from "underscore";
-var Graph = require("graph-data-structure");
+import * as ts from "typescript";
 
 
 // start typescript compiler api helper
 const ast = new Ast();
 
 //add ts project
-ast.addSourceFiles("C:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
+ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
 const sourceFiles = ast.getSourceFiles();
 
+enum ExportType{
+    Single=1,
+    Multiple=2
+}
+
+interface FileData{
+    sourceFile?: SourceFile,
+    fullyQualifiedNamespace?:string,    
+    exportedClassCount?:number,
+    exportedInterfaceCount?:number,
+    exportedOtherCount?:number,
+    exportedTotalCount?:number,
+    exportType?:ExportType,
+    exportNames?:string[],
+    requires?:number[]
+}
+
+var data: FileData[] = [];
 
 
-//go through each file in the project and build a graph data structure linking all of the files dependencies together so that we can work out what modules need to be imported
-var graph = new Graph();
+//FIRST PASS - ANALYSE LOOP.  Populate FileData object
+/**********************************************************/
+
 sourceFiles.forEach(function(sourceFile){
-    console.log(sourceFile.getFilePath())
-    
+    console.log("\nstart:"+sourceFile.getFilePath());
+
     var namespaces = sourceFile.getNamespaces();
     if (namespaces.length > 0) {
         
@@ -29,32 +48,156 @@ sourceFiles.forEach(function(sourceFile){
         const referencedSymbols = finalIdentifier.findReferences();
         var references = referencedSymbols[0].getReferences() // probably not unique, needs to check by scriptname
 
-        //Nerding the shit out of this with a graph data structure
-        graph.addEdge(sourceFile.getFilePath(),references[0].getSourceFile().getFilePath());
-        
+        references.forEach(element => {
+            let referenceSourceFile = element.getSourceFile();
+            let referenceSourceFilePath = referenceSourceFile.getFilePath();            
+
+            if (!data[referenceSourceFilePath]){
+                data[referenceSourceFilePath] = {
+                    sourceFile: referenceSourceFile,
+                    requires: []
+                }
+            }
+            
+            if (referenceSourceFilePath!=sourceFile.getFilePath()){
+                data[referenceSourceFilePath].requires[sourceFile.getFilePath()]=1;                
+            }
+
+            console.log("--->"+referenceSourceFilePath);
+        });
+  
+
         //need to know how many exported thingys there are so singles can be defaulted
 
-        var exportCount = 0;
+        var exportedClassCount = 0;
+        var exportedInterfaceCount = 0;
+        var exportedTotalCount = 0;        
+        var exportNames = [];
+
         namespace.getClasses().forEach(function(c){
-            if (c.isNamedExport) exportCount++;
+            if (c.isNamedExport){
+                exportedClassCount++;
+                exportNames.push(c.getName());
+            }
         });
 
-        console.log("namespace: "+ namespace.getName() + " exports:" + exportCount + " referenced count: "+ references.length);
+        var exportedInterfaceCount = 0;
+        namespace.getInterfaces().forEach(function(c){
+            if (c.isNamedExport){
+                exportedInterfaceCount++;
+                exportNames.push(c.getName());
+            }
+        });
+
+        namespace.getDescendantsOfKind(ts.SyntaxKind.ExportKeyword).forEach(function(c){
+            exportedTotalCount++;
+            exportNames.push(c.);  //getname is not valid in this case.
+        });
+        
+        var exportedOtherCount = exportedTotalCount-exportedClassCount-exportedInterfaceCount;
+        
+
+        //store in hash table based on pathname key
+        const reference :FileData = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || {};
+        
+        reference.sourceFile = sourceFile;
+        reference.exportedClassCount = exportedClassCount;
+        reference.exportedInterfaceCount = exportedInterfaceCount;
+        reference.exportedOtherCount = exportedOtherCount;
+        reference.exportedTotalCount = exportedTotalCount;
+        reference.fullyQualifiedNamespace = namespace.getName();
+        if (exportNames.length>0){
+            reference.exportNames=exportNames.slice();
+        }
+
+
+
+        
+        console.log(sourceFile.getFilePath() + "(namespace: "+ namespace.getName() + ")\n"
+        + "Exported Class: " + exportedClassCount + " Interface: " + exportedInterfaceCount + " Other: " + exportedOtherCount +" referenced count: "+ references.length);
     
 
-        //todo: add export default if possible
+
 
         //todo: Search graph and add import statements
+        addImports(data[sourceFile.getFilePath()]);
 
-        // remove the legacy namespaces
-        //removeNamespace(sourceFile)
-    
+            
     }
-    
-        
+
 })
 
 
+// UPDATE FILES
+/**************************************************************/
+
+console.log("\n\n\n SECOND PASS - UPDATE SOURCE\n\n");
+
+sourceFiles.forEach(function(sourceFile){
+    console.log(sourceFile.getFilePath());
+
+    //removeNamespace(sourceFile)
+    //setExportDefault(data[sourceFile.getFilePath()]);
+});
+
+
+
+
+/*
+
+function setExportDefault(item: FileData){
+    console.log("setExportDefault:"+item.sourceFile.getFilePath());
+    var namespaces = item.sourceFile.getNamespaces();
+    if (namespaces.length > 0) {
+        var namespace = namespaces[0];
+        
+        if (item.exportedTotalCount==1){
+            item.exportType = ExportType.Single;
+            
+            if (item.exportedClassCount==1){
+                let n = namespace.getClasses()[0];
+                item.exportName = n.getName();
+                n.setIsDefaultExport(true);                
+            }
+            if (item.exportedInterfaceCount==1){
+                let n = namespace.getInterfaces()[0];
+                item.exportName = n.getName();
+                n.setIsDefaultExport(true);
+            }
+            if (item.exportedOtherCount==1){ 
+                namespace.getDescendantsOfKind(ts.SyntaxKind.ExportKeyword).forEach(function(c){
+                //hard one.
+                });
+                
+                //todo:
+                //item.sourceFile.insertExport(item.sourceFile.getEnd(),{});
+            }
+
+        }
+    }
+    console.log("setExportDefault: end");
+     
+}
+
+*/
+
+function addImports(item: FileData){
+
+    for (var key in item.requires){
+        let requiredItem = data[key];
+        let importString = "";
+        if (requiredItem.exportNames){
+            requiredItem.exportNames.forEach(function(e){
+                importString += e + ", ";
+            })
+            importString = importString.slice(0, -2);
+
+            console.log('import {'+importString+'} from "'+requiredItem.sourceFile.getFilePath())+'"');
+        }else{
+            console.log('no imports');
+        }
+    }
+}
 
 
 function removeNamespace(sourceFile){
