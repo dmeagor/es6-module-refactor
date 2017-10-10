@@ -1,14 +1,8 @@
-import Ast, { SourceFile } from "ts-simple-ast";
+import Ast, { SourceFile, TypeGuards, ImportDeclarationStructure}  from "ts-simple-ast";
 import * as _ from "underscore";
 import * as ts from "typescript";
+import * as ProgressBar from "progress";
 
-
-// start typescript compiler api helper
-const ast = new Ast();
-
-//add ts project
-ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
-const sourceFiles = ast.getSourceFiles();
 
 enum ExportType{
     Single=1,
@@ -18,14 +12,25 @@ enum ExportType{
 interface FileData{
     sourceFile?: SourceFile,
     fullyQualifiedNamespace?:string,    
-    exportedClassCount?:number,
-    exportedInterfaceCount?:number,
-    exportedOtherCount?:number,
-    exportedTotalCount?:number,
+    exportedCount?:number,   
     exportType?:ExportType,
     exportNames?:string[],
     requires?:number[]
 }
+
+
+
+// start typescript compiler api helper
+const ast = new Ast();
+
+//add ts project
+//ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
+ast.addSourceFiles("../test/VideoTour/**/*{.d.ts,.ts}");
+
+const sourceFiles = ast.getSourceFiles();
+
+console.log("\nAnalysing source files for dependencies")
+var bar = new ProgressBar('[:bar] ETA :eta seconds ...:filename', { total: sourceFiles.length, width: 40 });
 
 var data: FileData[] = [];
 
@@ -34,7 +39,9 @@ var data: FileData[] = [];
 /**********************************************************/
 
 sourceFiles.forEach(function(sourceFile){
-    console.log("\nstart:"+sourceFile.getFilePath());
+    //console.log("\nstart:"+sourceFile.getFilePath());
+    bar.tick({filename: sourceFile.getFilePath().slice(-100)});
+    bar.render();
 
     var namespaces = sourceFile.getNamespaces();
     if (namespaces.length > 0) {
@@ -63,65 +70,43 @@ sourceFiles.forEach(function(sourceFile){
                 data[referenceSourceFilePath].requires[sourceFile.getFilePath()]=1;                
             }
 
-            console.log("--->"+referenceSourceFilePath);
-        });
-  
-
-        //need to know how many exported thingys there are so singles can be defaulted
-
-        var exportedClassCount = 0;
-        var exportedInterfaceCount = 0;
-        var exportedTotalCount = 0;        
-        var exportNames = [];
-
-        namespace.getClasses().forEach(function(c){
-            if (c.isNamedExport){
-                exportedClassCount++;
-                exportNames.push(c.getName());
-            }
+            //console.log("--->"+referenceSourceFilePath);
         });
 
-        var exportedInterfaceCount = 0;
-        namespace.getInterfaces().forEach(function(c){
-            if (c.isNamedExport){
-                exportedInterfaceCount++;
-                exportNames.push(c.getName());
-            }
-        });
 
-        namespace.getDescendantsOfKind(ts.SyntaxKind.ExportKeyword).forEach(function(c){
-            exportedTotalCount++;
-            exportNames.push(c.);  //getname is not valid in this case.
-        });
+        //loop through the statements, check for exports, get names and push them into an array for later.
+        const exportNames = [];
+                        
+        for (const statement of namespace.getStatements()) {
+            if (!TypeGuards.isExportableNode(statement) || !statement.hasExportKeyword())
+                continue;
         
-        var exportedOtherCount = exportedTotalCount-exportedClassCount-exportedInterfaceCount;
-        
+            if (TypeGuards.isVariableStatement(statement)) {
+                for (const variableDeclaration of statement.getDeclarationList().getDeclarations()) {
+                    exportNames.push(variableDeclaration.getName());
+                }
+            }
+            else if (TypeGuards.isNamedNode(statement))
+                exportNames.push(statement.getName());
+            else
+                console.error(`Unhandled exported statement: ${statement.getText()}`);
+        }
+
 
         //store in hash table based on pathname key
-        const reference :FileData = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || {};
+        const reference : FileData = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || {};
         
         reference.sourceFile = sourceFile;
-        reference.exportedClassCount = exportedClassCount;
-        reference.exportedInterfaceCount = exportedInterfaceCount;
-        reference.exportedOtherCount = exportedOtherCount;
-        reference.exportedTotalCount = exportedTotalCount;
+        reference.exportedCount = exportNames.length;
         reference.fullyQualifiedNamespace = namespace.getName();
         if (exportNames.length>0){
             reference.exportNames=exportNames.slice();
         }
-
-
-
         
-        console.log(sourceFile.getFilePath() + "(namespace: "+ namespace.getName() + ")\n"
-        + "Exported Class: " + exportedClassCount + " Interface: " + exportedInterfaceCount + " Other: " + exportedOtherCount +" referenced count: "+ references.length);
-    
-
-
-
-        //todo: Search graph and add import statements
-        addImports(data[sourceFile.getFilePath()]);
-
+   /*     
+        console.log(sourceFile.getFilePath() + " (namespace: "+ namespace.getName() + ")\n"
+        + "exports: " + exportNames.length +" referenced count: "+ references.length);
+     */   
             
     }
 
@@ -135,68 +120,61 @@ console.log("\n\n\n SECOND PASS - UPDATE SOURCE\n\n");
 
 sourceFiles.forEach(function(sourceFile){
     console.log(sourceFile.getFilePath());
+    addImports(data[sourceFile.getFilePath()]);
 
     //removeNamespace(sourceFile)
-    //setExportDefault(data[sourceFile.getFilePath()]);
 });
 
 
-
-
-/*
-
-function setExportDefault(item: FileData){
-    console.log("setExportDefault:"+item.sourceFile.getFilePath());
-    var namespaces = item.sourceFile.getNamespaces();
-    if (namespaces.length > 0) {
-        var namespace = namespaces[0];
-        
-        if (item.exportedTotalCount==1){
-            item.exportType = ExportType.Single;
-            
-            if (item.exportedClassCount==1){
-                let n = namespace.getClasses()[0];
-                item.exportName = n.getName();
-                n.setIsDefaultExport(true);                
-            }
-            if (item.exportedInterfaceCount==1){
-                let n = namespace.getInterfaces()[0];
-                item.exportName = n.getName();
-                n.setIsDefaultExport(true);
-            }
-            if (item.exportedOtherCount==1){ 
-                namespace.getDescendantsOfKind(ts.SyntaxKind.ExportKeyword).forEach(function(c){
-                //hard one.
-                });
+function addImports(item: FileData){
+    if (item)
+        if (item.requires){
+            var allImports : ImportDeclarationStructure[] = [];
+            let saveChanges = false;
+            for (var key in item.requires){
+                let requiredItem = data[key];
+                let importString = "";
+                if (requiredItem.exportNames){
+                    allImports = addToExportList(requiredItem.sourceFile.getFilePath(),requiredItem.exportNames,allImports);
+                    saveChanges=true;
+                    //debugging only
+                    requiredItem.exportNames.forEach(function(e){
+                        importString += e + ", ";
+                    })
+                    importString = importString.slice(0, -2);
+                    console.log('import {'+importString+'} from "'+requiredItem.sourceFile.getFilePath()+'"');
+                    //end debugging.
+                    
+                }else{
+                    console.log('no imports');
+                }
                 
-                //todo:
-                //item.sourceFile.insertExport(item.sourceFile.getEnd(),{});
             }
-
+            if (saveChanges){
+                item.sourceFile.addImports(allImports);            
+                item.sourceFile.save();
+            }
+        }else{
+            console.log("sourcefile has no dependencies listed?")
         }
-    }
-    console.log("setExportDefault: end");
-     
+
 }
 
-*/
-
-function addImports(item: FileData){
-
-    for (var key in item.requires){
-        let requiredItem = data[key];
-        let importString = "";
-        if (requiredItem.exportNames){
-            requiredItem.exportNames.forEach(function(e){
-                importString += e + ", ";
-            })
-            importString = importString.slice(0, -2);
-
-            console.log('import {'+importString+'} from "'+requiredItem.sourceFile.getFilePath())+'"');
-        }else{
-            console.log('no imports');
-        }
+function addToExportList(moduleSpecifier : string, exportNames : string[], allImports: ImportDeclarationStructure[]) : ImportDeclarationStructure[]{
+    var addExportList = [];
+        
+    var importDeclaration : ImportDeclarationStructure = {
+        moduleSpecifier: moduleSpecifier,
+        namedImports: []
     }
+    
+    for (var i in exportNames) {
+        importDeclaration.namedImports.push({name: exportNames[i]});
+    }
+    
+    allImports.push(importDeclaration);
+    
+    return allImports;
 }
 
 
