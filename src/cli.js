@@ -84,6 +84,10 @@ sourceFiles.forEach(function (sourceFile) {
     addImports(data[sourceFile.getFilePath()]);
     //removeNamespace(sourceFile)
 });
+console.log("\n\n\n SECOND PASS - remove namespace\n\n");
+sourceFiles.forEach(function (sourceFile) {
+    removeNamespace(sourceFile);
+});
 function addImports(item) {
     if (item)
         if (item.requires) {
@@ -93,20 +97,23 @@ function addImports(item) {
                 var requiredItem = data[key];
                 var importString = "";
                 if (requiredItem.exportNames) {
-                    allImports = addToExportList(requiredItem.sourceFile.getFilePath(), requiredItem.exportNames, allImports);
+                    modulePath = requiredItem.sourceFile.getFilePath().slice(0, -3);
+                    ;
+                    allImports = addToExportList(modulePath, requiredItem.exportNames, allImports);
                     saveChanges = true;
                     //debugging only
                     requiredItem.exportNames.forEach(function (e) {
                         importString += e + ", ";
                     });
                     importString = importString.slice(0, -2);
-                    console.log('import {' + importString + '} from "' + requiredItem.sourceFile.getFilePath() + '"');
+                    console.log('import {' + importString + '} from "' + modulePath + '"');
                     //end debugging.
                 }
                 else {
                     console.log('no imports');
                 }
             };
+            var modulePath;
             for (var key in item.requires) {
                 _loop_1();
             }
@@ -135,12 +142,14 @@ function removeNamespace(sourceFile) {
     while (sourceFile.getNamespaces().length > 0) {
         var currentNamespace = sourceFile.getNamespaces()[0];
         var name_1 = currentNamespace.getName();
-        var namespaceBodyText = "// old namespace: " + name_1 + "\n\n" + currentNamespace.getBody().getChildSyntaxListOrThrow().getFullText();
+        var namespaceBodyText = "\n\n// old namespace: " + name_1 + "\n\n" + currentNamespace.getBody().getChildSyntaxListOrThrow().getFullText();
         // replace the namespace with the body text
         sourceFile.replaceText([currentNamespace.getPos(), currentNamespace.getEnd()], namespaceBodyText);
     }
     sourceFile.formatText(); // make the text look nice
-    console.log(sourceFile.getFullText());
+    console.log(sourceFile.getFilePath());
+    sourceFile.save();
+    //console.log(sourceFile.getFullText());
     //todo: add save
 }
 //# sourceMappingURL=cli.js.map

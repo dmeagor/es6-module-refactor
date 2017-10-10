@@ -125,6 +125,12 @@ sourceFiles.forEach(function(sourceFile){
     //removeNamespace(sourceFile)
 });
 
+console.log("\n\n\n SECOND PASS - remove namespace\n\n");
+
+sourceFiles.forEach(function(sourceFile){
+
+    removeNamespace(sourceFile)
+});
 
 function addImports(item: FileData){
     if (item)
@@ -135,14 +141,15 @@ function addImports(item: FileData){
                 let requiredItem = data[key];
                 let importString = "";
                 if (requiredItem.exportNames){
-                    allImports = addToExportList(requiredItem.sourceFile.getFilePath(),requiredItem.exportNames,allImports);
+                    var modulePath=requiredItem.sourceFile.getFilePath().slice(0, -3);;
+                    allImports = addToExportList(modulePath,requiredItem.exportNames,allImports);
                     saveChanges=true;
                     //debugging only
                     requiredItem.exportNames.forEach(function(e){
                         importString += e + ", ";
                     })
                     importString = importString.slice(0, -2);
-                    console.log('import {'+importString+'} from "'+requiredItem.sourceFile.getFilePath()+'"');
+                    console.log('import {'+importString+'} from "'+modulePath+'"');
                     //end debugging.
                     
                 }else{
@@ -183,13 +190,15 @@ function removeNamespace(sourceFile){
     while (sourceFile.getNamespaces().length > 0) {
         const currentNamespace = sourceFile.getNamespaces()[0];
         const name = currentNamespace.getName();
-        const namespaceBodyText = "// old namespace: " + name + "\n\n"+ currentNamespace.getBody().getChildSyntaxListOrThrow().getFullText();
+        const namespaceBodyText = "\n\n// old namespace: " + name + "\n\n"+ currentNamespace.getBody().getChildSyntaxListOrThrow().getFullText();
         
         // replace the namespace with the body text
         sourceFile.replaceText([currentNamespace.getPos(), currentNamespace.getEnd()], namespaceBodyText);
     }
 
     sourceFile.formatText(); // make the text look nice
-    console.log(sourceFile.getFullText());
+    console.log(sourceFile.getFilePath());
+    sourceFile.save();
+    //console.log(sourceFile.getFullText());
     //todo: add save
 }
