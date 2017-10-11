@@ -57,7 +57,7 @@ sourceFiles.forEach(function(sourceFile){
 
         references.forEach(element => {
             let referenceSourceFile = element.getSourceFile();
-            let referenceSourceFilePath = referenceSourceFile.getFilePath();            
+            let referenceSourceFilePath = referenceSourceFile.getFilePath();                        
 
             if (!data[referenceSourceFilePath]){
                 data[referenceSourceFilePath] = {
