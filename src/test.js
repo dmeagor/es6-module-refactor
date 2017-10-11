@@ -4,28 +4,43 @@ var ts_simple_ast_1 = require("ts-simple-ast");
 // start typescript compiler api helper
 var ast = new ts_simple_ast_1.default();
 //add ts project
-ast.addSourceFiles("testfile.ts");
+//ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
+//ast.addSourceFiles("../test/VideoTour/**/*{.d.ts,.ts}");
+ast.addSourceFiles("../singletest/test.ts");
 var sourceFiles = ast.getSourceFiles();
-var sourceFile = sourceFiles[0];
-//var named : import
-var exportNames = ["hello", "there"];
-var allImports = [];
-allImports = addToExportList("/sdfgdsfg", exportNames, allImports);
-exportNames = ["bill", "bob"];
-allImports = addToExportList("/asdfsdfgsdfg", exportNames, allImports);
-console.log(allImports);
-sourceFile.addImports(allImports);
-sourceFile.save();
-function addToExportList(moduleSpecifier, exportNames, allImports) {
-    var addExportList = [];
-    var importDeclaration = {
-        moduleSpecifier: moduleSpecifier,
-        namedImports: []
-    };
-    for (var i in exportNames) {
-        importDeclaration.namedImports.push({ name: exportNames[i] });
+console.log("\nGetting statements");
+sourceFiles.forEach(function (sourceFile) {
+    var filename = sourceFile.getFilePath();
+    for (var _i = 0, _a = sourceFile.getNamespaces()[0].getStatements(); _i < _a.length; _i++) {
+        var statement = _a[_i];
+        if (ts_simple_ast_1.TypeGuards.isVariableStatement(statement)) {
+            for (var _b = 0, _c = statement.getDeclarationList().getDeclarations(); _b < _c.length; _b++) {
+                var variableDeclaration = _c[_b];
+                console.log("var: " + variableDeclaration.getName());
+            }
+        }
+        else if (ts_simple_ast_1.TypeGuards.isNamedNode(statement))
+            console.log("Other: " + statement.getName());
+        else {
+            //console.error(`Unhandled exported statement: ${statement.getText()}`);
+            console.log('unhandled statement');
+        }
     }
-    allImports.push(importDeclaration);
-    return allImports;
-}
+});
+/*
+    for (const statement of namespace.getStatements()) {
+        if (!TypeGuards.isExportableNode(statement) || !statement.hasExportKeyword())
+            continue;
+    
+        if (TypeGuards.isVariableStatement(statement)) {
+            for (const variableDeclaration of statement.getDeclarationList().getDeclarations()) {
+                exportNames.push(variableDeclaration.getName());
+            }
+        }
+        else if (TypeGuards.isNamedNode(statement))
+            exportNames.push(statement.getName());
+        else
+            console.error(`Unhandled exported statement: ${statement.getText()}`);
+    }
+*/ 
 //# sourceMappingURL=test.js.map

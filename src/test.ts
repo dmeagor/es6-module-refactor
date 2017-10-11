@@ -1,47 +1,60 @@
 import Ast, { SourceFile, TypeGuards, ImportDeclarationStructure}  from "ts-simple-ast";
-import * as _ from "underscore";
 import * as ts from "typescript";
+
+
 
 // start typescript compiler api helper
 const ast = new Ast();
 
 //add ts project
-ast.addSourceFiles("testfile.ts");
+//ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
+//ast.addSourceFiles("../test/VideoTour/**/*{.d.ts,.ts}");
+ast.addSourceFiles("../singletest/test.ts");
+
 const sourceFiles = ast.getSourceFiles();
 
-var sourceFile = sourceFiles[0];
-
-//var named : import
-
-var exportNames = ["hello","there"];
-var allImports : ImportDeclarationStructure[] = [];
-
-allImports = addToExportList("/sdfgdsfg",exportNames,allImports);
-exportNames = ["bill","bob"];
-allImports = addToExportList("/asdfsdfgsdfg",exportNames,allImports);
+console.log("\nGetting statements")
 
 
 
-console.log(allImports);
-sourceFile.addImports(allImports);
-sourceFile.save();
+sourceFiles.forEach(function(sourceFile){
+    const filename=sourceFile.getFilePath();
 
 
 
-function addToExportList(moduleSpecifier : string, exportNames : string[], allImports: ImportDeclarationStructure[]) : ImportDeclarationStructure[]{
-    var addExportList = [];
+    for (const statement of sourceFile.getNamespaces()[0].getStatements()) {
         
-    var importDeclaration : ImportDeclarationStructure = {
-        moduleSpecifier: moduleSpecifier,
-        namedImports: []
+    
+        if (TypeGuards.isVariableStatement(statement)) {
+            for (const variableDeclaration of statement.getDeclarationList().getDeclarations()) {
+                
+                console.log("var: "+variableDeclaration.getName());
+            }
+        }
+        else if (TypeGuards.isNamedNode(statement))
+            console.log("Other: " + statement.getName());
+        else{
+            //console.error(`Unhandled exported statement: ${statement.getText()}`);
+            console.log('unhandled statement')
+        }
     }
-    
-    for (var i in exportNames) {
-        importDeclaration.namedImports.push({name: exportNames[i]});
-    }
-    
-    allImports.push(importDeclaration);
-    
-    return allImports;
-}
 
+})
+
+
+/*
+    for (const statement of namespace.getStatements()) {
+        if (!TypeGuards.isExportableNode(statement) || !statement.hasExportKeyword())
+            continue;
+    
+        if (TypeGuards.isVariableStatement(statement)) {
+            for (const variableDeclaration of statement.getDeclarationList().getDeclarations()) {
+                exportNames.push(variableDeclaration.getName());
+            }
+        }
+        else if (TypeGuards.isNamedNode(statement))
+            exportNames.push(statement.getName());
+        else
+            console.error(`Unhandled exported statement: ${statement.getText()}`);
+    }
+*/
