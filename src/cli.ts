@@ -3,7 +3,6 @@ import * as _ from "underscore";
 import * as ts from "typescript";
 import * as ProgressBar from "progress";
 
-
 enum ExportType{
     Single=1,
     Multiple=2
@@ -25,7 +24,8 @@ const ast = new Ast();
 
 //add ts project
 //ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
-ast.addSourceFiles("../test/VideoTour/**/*{.d.ts,.ts}");
+const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 
 const sourceFiles = ast.getSourceFiles();
 
@@ -56,20 +56,25 @@ sourceFiles.forEach(function(sourceFile){
         var references = referencedSymbols[0].getReferences() // probably not unique, needs to check by scriptname
 
         references.forEach(element => {
-            let referenceSourceFile = element.getSourceFile();
-            let referenceSourceFilePath = referenceSourceFile.getFilePath();                        
 
-            if (!data[referenceSourceFilePath]){
-                data[referenceSourceFilePath] = {
-                    sourceFile: referenceSourceFile,
-                    requires: []
+            //if (TypeGuards.isNamespaceDeclaration(element.getNode())){
+            //    console.log("skipping module definition");
+            //}else{
+
+                let referenceSourceFile = element.getSourceFile();
+                let referenceSourceFilePath = referenceSourceFile.getFilePath();                        
+
+                if (!data[referenceSourceFilePath]){
+                    data[referenceSourceFilePath] = {
+                        sourceFile: referenceSourceFile,
+                        requires: []
+                    }
                 }
-            }
-            
-            if (referenceSourceFilePath!=sourceFile.getFilePath()){
-                data[referenceSourceFilePath].requires[sourceFile.getFilePath()]=1;                
-            }
-
+                
+                if (referenceSourceFilePath!=sourceFile.getFilePath()){
+                    data[referenceSourceFilePath].requires[sourceFile.getFilePath()]=1;                
+                }
+           // }
             //console.log("--->"+referenceSourceFilePath);
         });
 
@@ -91,6 +96,17 @@ sourceFiles.forEach(function(sourceFile){
             else
                 console.error(`Unhandled exported statement: ${statement.getText()}`);
         }
+
+        references.forEach(function(reference){
+            let node = reference.getNode();
+            if (TypeGuards.isTypeReferenceNode(node)){
+                node.replaceWithText(getNewQualifiedname(node.getText()))
+            }else if (TypeGuards.isPropertyAccessExpression(node)){
+                node.replaceWithText(getNewQualifiedname(node.getText()))
+            }            
+
+        });
+
 
 
         //store in hash table based on pathname key
@@ -141,7 +157,7 @@ function addImports(item: FileData){
                 let requiredItem = data[key];
                 let importString = "";
                 if (requiredItem.exportNames){
-                    var modulePath=requiredItem.sourceFile.getFilePath().slice(0, -3);;
+                    var modulePath=absoluteToRelativePath(requiredItem.sourceFile.getFilePath().slice(0, -3));
                     allImports = addToExportList(modulePath,requiredItem.exportNames,allImports);
                     saveChanges=true;
                     //debugging only
@@ -202,3 +218,43 @@ function removeNamespace(sourceFile){
     //console.log(sourceFile.getFullText());
     //todo: add save
 }
+
+function absoluteToRelativePath(path:string) : string {
+    
+        return path.replace(basePath,"");
+}
+
+function getNewQualifiedname(old:string){
+    
+        var o : string[] = old.split('.');
+        var newName: string;
+    
+        newName= o[o.length-1]
+        
+/*
+        if (o.length<=2){
+            newName= o[o.length-1]
+        }else{
+            var firstBit = toCamelCase(o.slice(0,o.length-1));  
+            var lastBit = o[o.length-1];
+            newName = firstBit+"."+lastBit;
+        }
+        
+        console.log(old,newName);
+  */      
+        return newName;
+    }
+    
+    
+    function toCamelCase(o: string[]){
+        var n:string;
+        const capitalize = str => str.charAt(0).toUpperCase() + str.toLowerCase().slice(1)    
+    
+        for(var i=0;i<o.length;i++){
+            if (i==0) 
+                n=o[i];
+            else 
+                n=n+capitalize(o[i]);
+        }
+        return n
+    }

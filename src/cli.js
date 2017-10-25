@@ -11,7 +11,8 @@ var ExportType;
 var ast = new ts_simple_ast_1.default();
 //add ts project
 //ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
-ast.addSourceFiles("../test/VideoTour/**/*{.d.ts,.ts}");
+var basePath = "C:/Users/dmeag/Source/Repos/test/VideoTour/";
+ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 var sourceFiles = ast.getSourceFiles();
 console.log("\nAnalysing source files for dependencies");
 var bar = new ProgressBar('[:bar] ETA :eta seconds ...:filename', { total: sourceFiles.length, width: 40 });
@@ -32,6 +33,9 @@ sourceFiles.forEach(function (sourceFile) {
         var referencedSymbols = finalIdentifier.findReferences();
         var references = referencedSymbols[0].getReferences(); // probably not unique, needs to check by scriptname
         references.forEach(function (element) {
+            //if (TypeGuards.isNamespaceDeclaration(element.getNode())){
+            //    console.log("skipping module definition");
+            //}else{
             var referenceSourceFile = element.getSourceFile();
             var referenceSourceFilePath = referenceSourceFile.getFilePath();
             if (!data[referenceSourceFilePath]) {
@@ -43,6 +47,7 @@ sourceFiles.forEach(function (sourceFile) {
             if (referenceSourceFilePath != sourceFile.getFilePath()) {
                 data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = 1;
             }
+            // }
             //console.log("--->"+referenceSourceFilePath);
         });
         //loop through the statements, check for exports, get names and push them into an array for later.
@@ -62,6 +67,15 @@ sourceFiles.forEach(function (sourceFile) {
             else
                 console.error("Unhandled exported statement: " + statement.getText());
         }
+        references.forEach(function (reference) {
+            var node = reference.getNode();
+            if (ts_simple_ast_1.TypeGuards.isTypeReferenceNode(node)) {
+                node.replaceWithText(getNewQualifiedname(node.getText()));
+            }
+            else if (ts_simple_ast_1.TypeGuards.isPropertyAccessExpression(node)) {
+                node.replaceWithText(getNewQualifiedname(node.getText()));
+            }
+        });
         //store in hash table based on pathname key
         var reference = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || {};
         reference.sourceFile = sourceFile;
@@ -97,8 +111,7 @@ function addImports(item) {
                 var requiredItem = data[key];
                 var importString = "";
                 if (requiredItem.exportNames) {
-                    modulePath = requiredItem.sourceFile.getFilePath().slice(0, -3);
-                    ;
+                    modulePath = absoluteToRelativePath(requiredItem.sourceFile.getFilePath().slice(0, -3));
                     allImports = addToExportList(modulePath, requiredItem.exportNames, allImports);
                     saveChanges = true;
                     //debugging only
@@ -151,5 +164,36 @@ function removeNamespace(sourceFile) {
     sourceFile.save();
     //console.log(sourceFile.getFullText());
     //todo: add save
+}
+function absoluteToRelativePath(path) {
+    return path.replace(basePath, "");
+}
+function getNewQualifiedname(old) {
+    var o = old.split('.');
+    var newName;
+    newName = o[o.length - 1];
+    /*
+            if (o.length<=2){
+                newName= o[o.length-1]
+            }else{
+                var firstBit = toCamelCase(o.slice(0,o.length-1));
+                var lastBit = o[o.length-1];
+                newName = firstBit+"."+lastBit;
+            }
+            
+            console.log(old,newName);
+      */
+    return newName;
+}
+function toCamelCase(o) {
+    var n;
+    var capitalize = function (str) { return str.charAt(0).toUpperCase() + str.toLowerCase().slice(1); };
+    for (var i = 0; i < o.length; i++) {
+        if (i == 0)
+            n = o[i];
+        else
+            n = n + capitalize(o[i]);
+    }
+    return n;
 }
 //# sourceMappingURL=cli.js.map
