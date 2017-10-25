@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var ts_simple_ast_1 = require("ts-simple-ast");
+var ts = require("typescript");
 var ProgressBar = require("progress");
 var ExportType;
 (function (ExportType) {
@@ -20,7 +21,7 @@ var data = [];
 //FIRST PASS - ANALYSE LOOP.  Populate FileData object
 /**********************************************************/
 sourceFiles.forEach(function (sourceFile) {
-    //console.log("\nstart:"+sourceFile.getFilePath());
+    console.log("\nstart:" + sourceFile.getFilePath());
     bar.tick({ filename: sourceFile.getFilePath().slice(-100) });
     bar.render();
     var namespaces = sourceFile.getNamespaces();
@@ -29,27 +30,6 @@ sourceFiles.forEach(function (sourceFile) {
         var namespace = namespaces[0];
         var nameIdentifiers = namespace.getNameIdentifiers();
         var finalIdentifier = nameIdentifiers[nameIdentifiers.length - 1];
-        //find references
-        var referencedSymbols = finalIdentifier.findReferences();
-        var references = referencedSymbols[0].getReferences(); // probably not unique, needs to check by scriptname
-        references.forEach(function (element) {
-            //if (TypeGuards.isNamespaceDeclaration(element.getNode())){
-            //    console.log("skipping module definition");
-            //}else{
-            var referenceSourceFile = element.getSourceFile();
-            var referenceSourceFilePath = referenceSourceFile.getFilePath();
-            if (!data[referenceSourceFilePath]) {
-                data[referenceSourceFilePath] = {
-                    sourceFile: referenceSourceFile,
-                    requires: []
-                };
-            }
-            if (referenceSourceFilePath != sourceFile.getFilePath()) {
-                data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = 1;
-            }
-            // }
-            //console.log("--->"+referenceSourceFilePath);
-        });
         //loop through the statements, check for exports, get names and push them into an array for later.
         var exportNames = [];
         for (var _i = 0, _a = namespace.getStatements(); _i < _a.length; _i++) {
@@ -59,23 +39,19 @@ sourceFiles.forEach(function (sourceFile) {
             if (ts_simple_ast_1.TypeGuards.isVariableStatement(statement)) {
                 for (var _b = 0, _c = statement.getDeclarationList().getDeclarations(); _b < _c.length; _b++) {
                     var variableDeclaration = _c[_b];
+                    console.log("Variable: ", variableDeclaration.getName());
                     exportNames.push(variableDeclaration.getName());
+                    refactorNames(variableDeclaration.getNameIdentifier(), sourceFile);
                 }
             }
-            else if (ts_simple_ast_1.TypeGuards.isNamedNode(statement))
+            else if (ts_simple_ast_1.TypeGuards.isNamedNode(statement)) {
+                console.log("Named Node: ", statement.getName());
                 exportNames.push(statement.getName());
+                refactorNames(statement.getNameIdentifier(), sourceFile);
+            }
             else
                 console.error("Unhandled exported statement: " + statement.getText());
         }
-        references.forEach(function (reference) {
-            var node = reference.getNode();
-            if (ts_simple_ast_1.TypeGuards.isTypeReferenceNode(node)) {
-                node.replaceWithText(getNewQualifiedname(node.getText()));
-            }
-            else if (ts_simple_ast_1.TypeGuards.isPropertyAccessExpression(node)) {
-                node.replaceWithText(getNewQualifiedname(node.getText()));
-            }
-        });
         //store in hash table based on pathname key
         var reference = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || {};
         reference.sourceFile = sourceFile;
@@ -102,6 +78,47 @@ console.log("\n\n\n SECOND PASS - remove namespace\n\n");
 sourceFiles.forEach(function (sourceFile) {
     removeNamespace(sourceFile);
 });
+function refactorNames(finalIdentifier, sourceFile) {
+    //find references
+    var referencedSymbols = finalIdentifier.findReferences();
+    var references = referencedSymbols[0].getReferences(); // probably not unique, needs to check by scriptname
+    references.forEach(function (element) {
+        var referenceSourceFile = element.getSourceFile();
+        var referenceSourceFilePath = referenceSourceFile.getFilePath();
+        if (!data[referenceSourceFilePath]) {
+            data[referenceSourceFilePath] = {
+                sourceFile: referenceSourceFile,
+                requires: []
+            };
+        }
+        if (referenceSourceFilePath != sourceFile.getFilePath()) {
+            data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = 1;
+        }
+        var node = element.getNode();
+        if (ts_simple_ast_1.TypeGuards.isTypeReferenceNode(node) || ts_simple_ast_1.TypeGuards.isPropertyAccessExpression(node)) {
+            //don't change
+            console.log("nochange: ", referenceSourceFilePath, node.getKindName(), node.getText());
+        }
+        else {
+            var ancestor = node.getFirstAncestorByKind(ts.SyntaxKind.TypeReference);
+            if (ancestor) {
+                console.log("tr: ", referenceSourceFilePath, ancestor.getKindName(), ancestor.getText());
+                ancestor.replaceWithText(getNewQualifiedname(ancestor.getText()));
+            }
+            else {
+                //var ancestor2 = node.getFirstAncestorByKind(ts.SyntaxKind.PropertyAccessExpression);
+                //if (ancestor2){
+                if (ts_simple_ast_1.TypeGuards.isIdentifier(node)) {
+                    var name = node.
+                        console.log("pae: ", referenceSourceFilePath, name);
+                }
+                //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))
+                //}
+            }
+            referenceSourceFile.save();
+        }
+    });
+}
 function addImports(item) {
     if (item)
         if (item.requires) {

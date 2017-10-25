@@ -1,4 +1,4 @@
-import Ast, { SourceFile, TypeGuards, ImportDeclarationStructure}  from "ts-simple-ast";
+import Ast, { SourceFile, TypeGuards, ImportDeclarationStructure, Identifier}  from "ts-simple-ast";
 import * as _ from "underscore";
 import * as ts from "typescript";
 import * as ProgressBar from "progress";
@@ -39,7 +39,7 @@ var data: FileData[] = [];
 /**********************************************************/
 
 sourceFiles.forEach(function(sourceFile){
-    //console.log("\nstart:"+sourceFile.getFilePath());
+    console.log("\nstart:"+sourceFile.getFilePath());
     bar.tick({filename: sourceFile.getFilePath().slice(-100)});
     bar.render();
 
@@ -51,32 +51,7 @@ sourceFiles.forEach(function(sourceFile){
         var nameIdentifiers = namespace.getNameIdentifiers();
         var finalIdentifier = nameIdentifiers[nameIdentifiers.length-1];
 
-        //find references
-        const referencedSymbols = finalIdentifier.findReferences();
-        var references = referencedSymbols[0].getReferences() // probably not unique, needs to check by scriptname
-
-        references.forEach(element => {
-
-            //if (TypeGuards.isNamespaceDeclaration(element.getNode())){
-            //    console.log("skipping module definition");
-            //}else{
-
-                let referenceSourceFile = element.getSourceFile();
-                let referenceSourceFilePath = referenceSourceFile.getFilePath();                        
-
-                if (!data[referenceSourceFilePath]){
-                    data[referenceSourceFilePath] = {
-                        sourceFile: referenceSourceFile,
-                        requires: []
-                    }
-                }
-                
-                if (referenceSourceFilePath!=sourceFile.getFilePath()){
-                    data[referenceSourceFilePath].requires[sourceFile.getFilePath()]=1;                
-                }
-           // }
-            //console.log("--->"+referenceSourceFilePath);
-        });
+        
 
 
         //loop through the statements, check for exports, get names and push them into an array for later.
@@ -88,24 +63,21 @@ sourceFiles.forEach(function(sourceFile){
         
             if (TypeGuards.isVariableStatement(statement)) {
                 for (const variableDeclaration of statement.getDeclarationList().getDeclarations()) {
+                    console.log("Variable: ",variableDeclaration.getName());
                     exportNames.push(variableDeclaration.getName());
+                    refactorNames(variableDeclaration.getNameIdentifier(),sourceFile);
                 }
             }
-            else if (TypeGuards.isNamedNode(statement))
+            else if (TypeGuards.isNamedNode(statement)){
+                console.log("Named Node: ",statement.getName());
+                
                 exportNames.push(statement.getName());
+                refactorNames(statement.getNameIdentifier(),sourceFile);                
+            }
             else
                 console.error(`Unhandled exported statement: ${statement.getText()}`);
         }
 
-        references.forEach(function(reference){
-            let node = reference.getNode();
-            if (TypeGuards.isTypeReferenceNode(node)){
-                node.replaceWithText(getNewQualifiedname(node.getText()))
-            }else if (TypeGuards.isPropertyAccessExpression(node)){
-                node.replaceWithText(getNewQualifiedname(node.getText()))
-            }            
-
-        });
 
 
 
@@ -147,6 +119,69 @@ sourceFiles.forEach(function(sourceFile){
 
     removeNamespace(sourceFile)
 });
+
+
+
+function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile){
+    //find references
+    const referencedSymbols = finalIdentifier.findReferences();
+    var references = referencedSymbols[0].getReferences() // probably not unique, needs to check by scriptname
+
+    references.forEach(element => {      
+
+        let referenceSourceFile = element.getSourceFile();
+        let referenceSourceFilePath = referenceSourceFile.getFilePath();                        
+
+        if (!data[referenceSourceFilePath]){
+            data[referenceSourceFilePath] = {
+                sourceFile: referenceSourceFile,
+                requires: []
+            }
+        }
+        
+        if (referenceSourceFilePath!=sourceFile.getFilePath()){
+            data[referenceSourceFilePath].requires[sourceFile.getFilePath()]=1;                
+        }
+        
+        
+        var node=element.getNode();
+
+        
+        if (TypeGuards.isTypeReferenceNode(node) || TypeGuards.isPropertyAccessExpression(node)){
+            //don't change
+            console.log("nochange: ", referenceSourceFilePath, node.getKindName(), node.getText());
+            
+        } else {
+
+
+
+            var ancestor = node.getFirstAncestorByKind(ts.SyntaxKind.TypeReference);
+            if (ancestor){
+                    console.log("tr: ", referenceSourceFilePath, ancestor.getKindName(), ancestor.getText());
+                    
+                    ancestor.replaceWithText(getNewQualifiedname(ancestor.getText()))
+                    
+                
+            } else {
+
+                //var ancestor2 = node.getFirstAncestorByKind(ts.SyntaxKind.PropertyAccessExpression);
+                //if (ancestor2){
+                
+                
+                        if (TypeGuards.isIdentifier(node)){
+                        var name = node.
+
+                        console.log("pae: ", referenceSourceFilePath, name);
+                        }
+                        //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))
+                              
+                //}
+            }
+
+            referenceSourceFile.save();                                
+        }
+    });
+}
 
 function addImports(item: FileData){
     if (item)
