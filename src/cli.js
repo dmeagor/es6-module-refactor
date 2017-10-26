@@ -66,18 +66,20 @@ sourceFiles.forEach(function (sourceFile) {
           */
     }
 });
-// UPDATE FILES
-/**************************************************************/
-console.log("\n\n\n SECOND PASS - UPDATE SOURCE\n\n");
-sourceFiles.forEach(function (sourceFile) {
-    console.log(sourceFile.getFilePath());
-    addImports(data[sourceFile.getFilePath()]);
-    //removeNamespace(sourceFile)
-});
-console.log("\n\n\n SECOND PASS - remove namespace\n\n");
-sourceFiles.forEach(function (sourceFile) {
-    removeNamespace(sourceFile);
-});
+if (0) {
+    // UPDATE FILES
+    /**************************************************************/
+    console.log("\n\n\n SECOND PASS - UPDATE SOURCE\n\n");
+    sourceFiles.forEach(function (sourceFile) {
+        console.log(sourceFile.getFilePath());
+        addImports(data[sourceFile.getFilePath()]);
+        //removeNamespace(sourceFile)
+    });
+    console.log("\n\n\n SECOND PASS - remove namespace\n\n");
+    sourceFiles.forEach(function (sourceFile) {
+        removeNamespace(sourceFile);
+    });
+}
 function refactorNames(finalIdentifier, sourceFile) {
     //find references
     var referencedSymbols = finalIdentifier.findReferences();
@@ -100,22 +102,17 @@ function refactorNames(finalIdentifier, sourceFile) {
             console.log("nochange: ", referenceSourceFilePath, node.getKindName(), node.getText());
         }
         else {
-            var ancestor = node.getFirstAncestorByKind(ts.SyntaxKind.TypeReference);
-            if (ancestor) {
+            var node_1 = element.getNode(); // this should be the identifier... previously it was a bug fixed in #106
+            var ancestor = node_1.getParentWhileKind(ts.SyntaxKind.TypeReference);
+            var ancestor2 = node_1.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
+            if (ancestor)
                 console.log("tr: ", referenceSourceFilePath, ancestor.getKindName(), ancestor.getText());
-                ancestor.replaceWithText(getNewQualifiedname(ancestor.getText()));
-            }
-            else {
-                //var ancestor2 = node.getFirstAncestorByKind(ts.SyntaxKind.PropertyAccessExpression);
-                //if (ancestor2){
-                if (ts_simple_ast_1.TypeGuards.isIdentifier(node)) {
-                    var name = node.
-                        console.log("pae: ", referenceSourceFilePath, name);
-                }
-                //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))
-                //}
-            }
-            referenceSourceFile.save();
+            else if (ancestor2)
+                console.log("pae: ", referenceSourceFilePath, ancestor2.getKindName(), ancestor2.getText());
+            else
+                console.log("error: ", referenceSourceFilePath, node_1.getKindName(), node_1.getParent().getKindName(), node_1.getText());
+            //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))
+            //referenceSourceFile.save();                                
         }
     });
 }

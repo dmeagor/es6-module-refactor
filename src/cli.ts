@@ -100,7 +100,7 @@ sourceFiles.forEach(function(sourceFile){
 
 })
 
-
+if (0){
 // UPDATE FILES
 /**************************************************************/
 
@@ -120,7 +120,7 @@ sourceFiles.forEach(function(sourceFile){
     removeNamespace(sourceFile)
 });
 
-
+}
 
 function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile){
     //find references
@@ -155,30 +155,23 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile){
 
 
 
-            var ancestor = node.getFirstAncestorByKind(ts.SyntaxKind.TypeReference);
-            if (ancestor){
-                    console.log("tr: ", referenceSourceFilePath, ancestor.getKindName(), ancestor.getText());
-                    
-                    ancestor.replaceWithText(getNewQualifiedname(ancestor.getText()))
-                    
-                
-            } else {
+            const node = element.getNode(); // this should be the identifier... previously it was a bug fixed in #106
+                       
+            const ancestor = node.getParentWhileKind(ts.SyntaxKind.TypeReference);
+            const ancestor2 = node.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
+            
 
-                //var ancestor2 = node.getFirstAncestorByKind(ts.SyntaxKind.PropertyAccessExpression);
-                //if (ancestor2){
-                
-                
-                        if (TypeGuards.isIdentifier(node)){
-                        var name = node.
-
-                        console.log("pae: ", referenceSourceFilePath, name);
-                        }
-                        //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))
+        if (ancestor)
+            console.log("tr: ", referenceSourceFilePath, ancestor.getKindName(), ancestor.getText());          
+        else if (ancestor2)
+            console.log("pae: ", referenceSourceFilePath, ancestor2.getKindName(), ancestor2.getText());
+        else
+            console.log("error: ", referenceSourceFilePath,node.getKindName(), node.getParent().getKindName(),node.getText() );
+                //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))
                               
-                //}
-            }
+          
 
-            referenceSourceFile.save();                                
+            //referenceSourceFile.save();                                
         }
     });
 }
