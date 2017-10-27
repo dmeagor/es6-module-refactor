@@ -23,9 +23,10 @@ interface FileData{
 const ast = new Ast();
 
 //add ts project
-//ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
-const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
-ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+const basePath="C:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/Shout/"
+ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
+//const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+//ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 
 const sourceFiles = ast.getSourceFiles();
 
@@ -256,10 +257,11 @@ function removeNamespace(sourceFile){
     while (sourceFile.getNamespaces().length > 0) {
         const currentNamespace = sourceFile.getNamespaces()[0];
         const name = currentNamespace.getName();
-        const namespaceBodyText = "\n\n// old namespace: " + name + "\n\n"+ currentNamespace.getBody().getChildSyntaxListOrThrow().getFullText();
+        currentNamespace.unwrap();
+        //const namespaceBodyText = "\n\n// old namespace: " + name + "\n\n"+ currentNamespace.getBody().getChildSyntaxListOrThrow().getFullText();
         
         // replace the namespace with the body text
-        sourceFile.replaceText([currentNamespace.getPos(), currentNamespace.getEnd()], namespaceBodyText);
+        //sourceFile.replaceText([currentNamespace.getPos(), currentNamespace.getEnd()], namespaceBodyText);
     }
 
     //sourceFile.formatText(); // make the text look nice
