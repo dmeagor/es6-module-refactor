@@ -107,24 +107,32 @@ function refactorNames(finalIdentifier, sourceFile) {
         }
         else {
             var node_1 = element.getNode(); // this should be the identifier... previously it was a bug fixed in #106
-            var ancestorQN = node_1.getParentWhileKind(ts.SyntaxKind.QualifiedName);
-            var ancestorTR = node_1.getParentWhileKind(ts.SyntaxKind.TypeReference);
-            var ancestorPAE = node_1.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
-            if (ancestorTR)
-                console.log("tr: ", refModule, ancestorTR.getKindName(), ancestorTR.getText());
-            else if (ancestorQN)
-                console.log("qn: ", refModule, ancestorQN.getKindName(), ancestorQN.getText());
-            else if (ancestorPAE) {
-                var left = ancestorPAE.getChildrenOfKind(ts.SyntaxKind.Identifier)[0];
+            var qn = node_1.getParentWhileKind(ts.SyntaxKind.QualifiedName);
+            var pae = node_1.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
+            var tr = node_1.getParentWhileKind(ts.SyntaxKind.TypeReference);
+            var found = false;
+            if (pae != null) {
+                var left = pae.getChildrenOfKind(ts.SyntaxKind.Identifier)[0];
                 if (left)
-                    console.log("pae: ", refModule, ancestorPAE.getKindName(), ancestorPAE.getText(), left.getText());
+                    console.log("pae: ", refModule, pae.getKindName(), pae.getText(), left.getText());
                 else
-                    console.log("pae: ", refModule, ancestorPAE.getKindName(), ancestorPAE.getText());
+                    console.log("pae: ", refModule, pae.getKindName(), pae.getText());
+                found = true;
             }
-            else
-                console.log("error: ", refModule, node_1.getKindName(), node_1.getParent().getKindName(), node_1.getText());
+            if (tr != null) {
+                console.log("tr1: ", refModule, tr.getKindName(), tr.getText());
+                found = true;
+            }
+            else if (qn != null) {
+                var tr2 = qn.getParentWhileKind(ts.SyntaxKind.TypeReference);
+                console.log("tr2: ", refModule, tr2.getKindName(), tr2.getText());
+                found = true;
+            }
+            if (!found) {
+                console.log("*** error: ", refModule, node_1.getKindName(), node_1.getParent().getKindName(), node_1.getText());
+            }
             //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))                                  
-            //referenceSourceFile.save();                                
+            //referenceSourceFile.save();
         }
     });
 }

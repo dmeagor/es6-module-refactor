@@ -163,27 +163,40 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile){
             
 
 
-            const ancestorQN = node.getParentWhileKind(ts.SyntaxKind.QualifiedName);
-            const ancestorTR = node.getParentWhileKind(ts.SyntaxKind.TypeReference);            
-            const ancestorPAE = node.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
-            
+            const qn = node.getParentWhileKind(ts.SyntaxKind.QualifiedName);
+            const pae = node.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
+            const tr = node.getParentWhileKind(ts.SyntaxKind.TypeReference);
+            let found=false;
 
-            if (ancestorTR)
-                console.log("tr: ", refModule, ancestorTR.getKindName(), ancestorTR.getText());    
-            else if (ancestorQN)
-                console.log("qn: ",  refModule, ancestorQN.getKindName(), ancestorQN.getText());  
-            else if (ancestorPAE){
-                let left = ancestorPAE.getChildrenOfKind(ts.SyntaxKind.Identifier)[0];
+            if (pae != null){
+                let left = pae.getChildrenOfKind(ts.SyntaxKind.Identifier)[0];
                 if (left)
-                    console.log("pae: ",  refModule, ancestorPAE.getKindName(), ancestorPAE.getText(), left.getText());
+                    console.log("pae: ",  refModule, pae.getKindName(), pae.getText(), left.getText());
                 else
-                    console.log("pae: ",  refModule, ancestorPAE.getKindName(), ancestorPAE.getText());
+                    console.log("pae: ",  refModule, pae.getKindName(), pae.getText());            
+                found=true;
             }
-            else
-                console.log("error: ",  refModule,node.getKindName(), node.getParent().getKindName(),node.getText() );
+            
+            if (tr != null){
+                console.log("tr1: ",  refModule, tr.getKindName(), tr.getText());  
+                found = true;
+                
+            }else if (qn != null){
+
+                const tr2 = qn.getParentWhileKind(ts.SyntaxKind.TypeReference);
+                console.log("tr2: ",  refModule, tr2.getKindName(), tr2.getText());  
+                
+                found = true;
+                
+            }
+            
+            if (!found){
+                console.log("*** error: ",  refModule,node.getKindName(), node.getParent().getKindName(),node.getText() );
+            }
+
             
             //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))                                  
-            //referenceSourceFile.save();                                
+            //referenceSourceFile.save();
         }
     });
 }
