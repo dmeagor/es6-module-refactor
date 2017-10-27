@@ -131,6 +131,7 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile){
 
         let referenceSourceFile = element.getSourceFile();
         let referenceSourceFilePath = referenceSourceFile.getFilePath();                        
+        let refModule = absoluteToRelativePath(referenceSourceFilePath);
 
         if (!data[referenceSourceFilePath]){
             data[referenceSourceFilePath] = {
@@ -145,32 +146,43 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile){
         
         
         var node=element.getNode();
-
+        let parentKind=node.getParent().getKind();
         
-        if (TypeGuards.isTypeReferenceNode(node) || TypeGuards.isPropertyAccessExpression(node)){
+        if (parentKind!=ts.SyntaxKind.QualifiedName &&
+            parentKind!=ts.SyntaxKind.TypeReference && 
+            parentKind!=ts.SyntaxKind.PropertyAccessExpression ){
+            
             //don't change
-            console.log("nochange: ", referenceSourceFilePath, node.getKindName(), node.getText());
+            console.log("nochange: ", refModule, node.getKindName(), node.getText());
             
         } else {
 
 
-
+            
             const node = element.getNode(); // this should be the identifier... previously it was a bug fixed in #106
-                       
-            const ancestor = node.getParentWhileKind(ts.SyntaxKind.TypeReference);
-            const ancestor2 = node.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
             
 
-        if (ancestor)
-            console.log("tr: ", referenceSourceFilePath, ancestor.getKindName(), ancestor.getText());          
-        else if (ancestor2)
-            console.log("pae: ", referenceSourceFilePath, ancestor2.getKindName(), ancestor2.getText());
-        else
-            console.log("error: ", referenceSourceFilePath,node.getKindName(), node.getParent().getKindName(),node.getText() );
-                //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))
-                              
-          
 
+            const ancestorQN = node.getParentWhileKind(ts.SyntaxKind.QualifiedName);
+            const ancestorTR = node.getParentWhileKind(ts.SyntaxKind.TypeReference);            
+            const ancestorPAE = node.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
+            
+
+            if (ancestorTR)
+                console.log("tr: ", refModule, ancestorTR.getKindName(), ancestorTR.getText());    
+            else if (ancestorQN)
+                console.log("qn: ",  refModule, ancestorQN.getKindName(), ancestorQN.getText());  
+            else if (ancestorPAE){
+                let left = ancestorPAE.getChildrenOfKind(ts.SyntaxKind.Identifier)[0];
+                if (left)
+                    console.log("pae: ",  refModule, ancestorPAE.getKindName(), ancestorPAE.getText(), left.getText());
+                else
+                    console.log("pae: ",  refModule, ancestorPAE.getKindName(), ancestorPAE.getText());
+            }
+            else
+                console.log("error: ",  refModule,node.getKindName(), node.getParent().getKindName(),node.getText() );
+            
+            //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))                                  
             //referenceSourceFile.save();                                
         }
     });
