@@ -66,7 +66,7 @@ sourceFiles.forEach(function (sourceFile) {
           */
     }
 });
-if (0) {
+if (1) {
     // UPDATE FILES
     /**************************************************************/
     console.log("\n\n\n SECOND PASS - UPDATE SOURCE\n\n");
@@ -113,26 +113,29 @@ function refactorNames(finalIdentifier, sourceFile) {
             var found = false;
             if (pae != null) {
                 var left = pae.getChildrenOfKind(ts.SyntaxKind.Identifier)[0];
-                if (left)
+                if (left) {
                     console.log("pae: ", refModule, pae.getKindName(), pae.getText(), left.getText());
-                else
-                    console.log("pae: ", refModule, pae.getKindName(), pae.getText());
-                found = true;
-            }
-            if (tr != null) {
-                console.log("tr1: ", refModule, tr.getKindName(), tr.getText());
-                found = true;
+                    left.replaceWithText(getNewQualifiedname(left.getText()));
+                }
+                else {
+                    console.log("pae: ", refModule, pae.getKindName(), pae.getText(), getNewQualifiedname(pae.getText()));
+                    pae.replaceWithText(getNewQualifiedname(pae.getText()));
+                }
             }
             else if (qn != null) {
                 var tr2 = qn.getParentWhileKind(ts.SyntaxKind.TypeReference);
                 console.log("tr2: ", refModule, tr2.getKindName(), tr2.getText());
-                found = true;
+                tr2.replaceWithText(getNewQualifiedname(tr2.getText()));
             }
-            if (!found) {
+            else if (tr != null) {
+                console.log("tr1: ", refModule, tr.getKindName(), tr.getText());
+                tr.replaceWithText(getNewQualifiedname(tr.getText()));
+            }
+            else {
                 console.log("*** error: ", refModule, node_1.getKindName(), node_1.getParent().getKindName(), node_1.getText());
             }
             //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))                                  
-            //referenceSourceFile.save();
+            referenceSourceFile.save();
         }
     });
 }
@@ -193,7 +196,7 @@ function removeNamespace(sourceFile) {
         // replace the namespace with the body text
         sourceFile.replaceText([currentNamespace.getPos(), currentNamespace.getEnd()], namespaceBodyText);
     }
-    sourceFile.formatText(); // make the text look nice
+    //sourceFile.formatText(); // make the text look nice
     console.log(sourceFile.getFilePath());
     sourceFile.save();
     //console.log(sourceFile.getFullText());
