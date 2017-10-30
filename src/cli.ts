@@ -23,10 +23,10 @@ interface FileData{
 const ast = new Ast();
 
 //add ts project
-const basePath="C:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/Shout/"
-ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
-//const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
-//ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+//const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/Shout/"
+//ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
+const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 
 const sourceFiles = ast.getSourceFiles();
 
@@ -101,7 +101,7 @@ sourceFiles.forEach(function(sourceFile){
 
 })
 
-if (1){
+if (0){
 // UPDATE FILES
 /**************************************************************/
 
@@ -147,8 +147,10 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile){
         
         
         var node=element.getNode();
-        let parentKind=node.getParent().getKind();
         
+        let parent = node.getParent();
+        let parentKind=parent.getKind();
+
         if (parentKind!=ts.SyntaxKind.QualifiedName &&
             parentKind!=ts.SyntaxKind.TypeReference && 
             parentKind!=ts.SyntaxKind.PropertyAccessExpression ){
@@ -157,43 +159,15 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile){
             console.log("nochange: ", refModule, node.getKindName(), node.getText());
             
         } else {
-
-
-            
-            const node = element.getNode(); // this should be the identifier... previously it was a bug fixed in #106
-            
-
-
-            const qn = node.getParentWhileKind(ts.SyntaxKind.QualifiedName);
-            const pae = node.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
-            const tr = node.getParentWhileKind(ts.SyntaxKind.TypeReference);
-            let found=false;
-
-            if (pae != null){
-                let left = pae.getChildrenOfKind(ts.SyntaxKind.Identifier)[0];
-                if (left){
-                    console.log("pae: ",  refModule, pae.getKindName(), pae.getText(), left.getText());
-                    left.replaceWithText(getNewQualifiedname(left.getText()))                                  
-                }
-                else{
-                    console.log("pae: ",  refModule, pae.getKindName(), pae.getText(),getNewQualifiedname(pae.getText()));
-                    pae.replaceWithText(getNewQualifiedname(pae.getText()))                                                      
-                }
-            }else if (qn != null){
-                const tr2 = qn.getParentWhileKind(ts.SyntaxKind.TypeReference);
-                console.log("tr2: ",  refModule, tr2.getKindName(), tr2.getText());                                  
-                tr2.replaceWithText(getNewQualifiedname(tr2.getText()))                                                                      
-                
-            }else if (tr != null){
-                console.log("tr1: ",  refModule, tr.getKindName(), tr.getText());
-                tr.replaceWithText(getNewQualifiedname(tr.getText()))                                                                                      
-                
-            }else{            
-                console.log("*** error: ",  refModule,node.getKindName(), node.getParent().getKindName(),node.getText() );
+        
+            console.log("found:",  refModule,parent.getKindName(), parent.getText(),"replace with: "+getNewQualifiedname(parent.getText()));
+            if (parent.getText()=="myenum"){
+                //something
+                console.log("enum: ",getNewQualifiedname(node.getText()));
             }
 
             
-            //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))                                  
+            parent.replaceWithText(getNewQualifiedname(parent.getText()))                                  
             referenceSourceFile.save();
         }
     });

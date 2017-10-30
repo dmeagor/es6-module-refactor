@@ -11,10 +11,10 @@ var ExportType;
 // start typescript compiler api helper
 var ast = new ts_simple_ast_1.default();
 //add ts project
-var basePath = "C:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/Shout/";
-ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
-//const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
-//ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+//const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/Shout/"
+//ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
+var basePath = "C:/Users/dmeag/Source/Repos/test/VideoTour/";
+ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 var sourceFiles = ast.getSourceFiles();
 console.log("\nAnalysing source files for dependencies");
 var bar = new ProgressBar('[:bar] ETA :eta seconds ...:filename', { total: sourceFiles.length, width: 40 });
@@ -67,7 +67,7 @@ sourceFiles.forEach(function (sourceFile) {
           */
     }
 });
-if (1) {
+if (0) {
     // UPDATE FILES
     /**************************************************************/
     console.log("\n\n\n SECOND PASS - UPDATE SOURCE\n\n");
@@ -99,7 +99,8 @@ function refactorNames(finalIdentifier, sourceFile) {
             data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = 1;
         }
         var node = element.getNode();
-        var parentKind = node.getParent().getKind();
+        var parent = node.getParent();
+        var parentKind = parent.getKind();
         if (parentKind != ts.SyntaxKind.QualifiedName &&
             parentKind != ts.SyntaxKind.TypeReference &&
             parentKind != ts.SyntaxKind.PropertyAccessExpression) {
@@ -107,35 +108,12 @@ function refactorNames(finalIdentifier, sourceFile) {
             console.log("nochange: ", refModule, node.getKindName(), node.getText());
         }
         else {
-            var node_1 = element.getNode(); // this should be the identifier... previously it was a bug fixed in #106
-            var qn = node_1.getParentWhileKind(ts.SyntaxKind.QualifiedName);
-            var pae = node_1.getParentWhileKind(ts.SyntaxKind.PropertyAccessExpression);
-            var tr = node_1.getParentWhileKind(ts.SyntaxKind.TypeReference);
-            var found = false;
-            if (pae != null) {
-                var left = pae.getChildrenOfKind(ts.SyntaxKind.Identifier)[0];
-                if (left) {
-                    console.log("pae: ", refModule, pae.getKindName(), pae.getText(), left.getText());
-                    left.replaceWithText(getNewQualifiedname(left.getText()));
-                }
-                else {
-                    console.log("pae: ", refModule, pae.getKindName(), pae.getText(), getNewQualifiedname(pae.getText()));
-                    pae.replaceWithText(getNewQualifiedname(pae.getText()));
-                }
+            console.log("found:", refModule, parent.getKindName(), parent.getText(), "replace with: " + getNewQualifiedname(parent.getText()));
+            if (parent.getText() == "myenum") {
+                //something
+                console.log("enum: ", getNewQualifiedname(node.getText()));
             }
-            else if (qn != null) {
-                var tr2 = qn.getParentWhileKind(ts.SyntaxKind.TypeReference);
-                console.log("tr2: ", refModule, tr2.getKindName(), tr2.getText());
-                tr2.replaceWithText(getNewQualifiedname(tr2.getText()));
-            }
-            else if (tr != null) {
-                console.log("tr1: ", refModule, tr.getKindName(), tr.getText());
-                tr.replaceWithText(getNewQualifiedname(tr.getText()));
-            }
-            else {
-                console.log("*** error: ", refModule, node_1.getKindName(), node_1.getParent().getKindName(), node_1.getText());
-            }
-            //ancestor2.replaceWithText(getNewQualifiedname(ancestor2.getText()))                                  
+            parent.replaceWithText(getNewQualifiedname(parent.getText()));
             referenceSourceFile.save();
         }
     });
