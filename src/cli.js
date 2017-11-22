@@ -11,10 +11,10 @@ var ExportType;
 // start typescript compiler api helper
 var ast = new ts_simple_ast_1.default();
 //add ts project
-//const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/Shout/"
-//ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/Shout/**/*{.d.ts,.ts}");
-var basePath = "C:/Users/dmeag/Source/Repos/test/VideoTour/";
-ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+var basePath = "c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/";
+ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
+//const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+//ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 var sourceFiles = ast.getSourceFiles();
 console.log("\nAnalysing source files for dependencies");
 var bar = new ProgressBar('[:bar] ETA :eta seconds ...:filename', { total: sourceFiles.length, width: 40 });
@@ -25,63 +25,88 @@ sourceFiles.forEach(function (sourceFile) {
     console.log("\nstart:" + sourceFile.getFilePath());
     bar.tick({ filename: sourceFile.getFilePath().slice(-100) });
     bar.render();
-    var namespaces = sourceFile.getNamespaces();
-    if (namespaces.length > 0) {
-        //find namespace identifier (they are nested due to being fully qualified)
-        var namespace = namespaces[0];
-        var nameIdentifiers = namespace.getNameIdentifiers();
-        var finalIdentifier = nameIdentifiers[nameIdentifiers.length - 1];
-        //loop through the statements, check for exports, get names and push them into an array for later.
-        var exportNames = [];
-        for (var _i = 0, _a = namespace.getStatements(); _i < _a.length; _i++) {
-            var statement = _a[_i];
-            if (!ts_simple_ast_1.TypeGuards.isExportableNode(statement) || !statement.hasExportKeyword())
-                continue;
-            if (ts_simple_ast_1.TypeGuards.isVariableStatement(statement)) {
-                for (var _b = 0, _c = statement.getDeclarationList().getDeclarations(); _b < _c.length; _b++) {
-                    var variableDeclaration = _c[_b];
-                    console.log("Variable: ", variableDeclaration.getName());
-                    exportNames.push(variableDeclaration.getName());
-                    refactorNames(variableDeclaration.getNameIdentifier(), sourceFile);
+    if (isExcluded(sourceFile.getFilePath())) {
+        console.log("skipping: ", sourceFile.getFilePath());
+    }
+    else {
+        var namespaces = sourceFile.getNamespaces();
+        if (namespaces.length > 0) {
+            //find namespace identifier (they are nested due to being fully qualified)
+            var namespace = namespaces[0];
+            var nameIdentifiers = namespace.getNameIdentifiers();
+            var finalIdentifier = nameIdentifiers[nameIdentifiers.length - 1];
+            //loop through the statements, check for exports, get names and push them into an array for later.
+            var exportNames = [];
+            for (var _i = 0, _a = namespace.getStatements(); _i < _a.length; _i++) {
+                var statement = _a[_i];
+                if (!ts_simple_ast_1.TypeGuards.isExportableNode(statement) || !statement.hasExportKeyword())
+                    continue;
+                if (ts_simple_ast_1.TypeGuards.isVariableStatement(statement)) {
+                    for (var _b = 0, _c = statement.getDeclarationList().getDeclarations(); _b < _c.length; _b++) {
+                        var variableDeclaration = _c[_b];
+                        console.log("Variable: ", variableDeclaration.getName());
+                        exportNames.push(variableDeclaration.getName());
+                        refactorNames(variableDeclaration.getNameIdentifier(), sourceFile, variableDeclaration.getName());
+                    }
                 }
+                else if (ts_simple_ast_1.TypeGuards.isNamedNode(statement)) {
+                    console.log("Named Node: ", statement.getName());
+                    exportNames.push(statement.getName());
+                    refactorNames(statement.getNameIdentifier(), sourceFile, statement.getName());
+                }
+                else
+                    console.error("Unhandled exported statement: " + statement.getText());
             }
-            else if (ts_simple_ast_1.TypeGuards.isNamedNode(statement)) {
-                console.log("Named Node: ", statement.getName());
-                exportNames.push(statement.getName());
-                refactorNames(statement.getNameIdentifier(), sourceFile);
+            //store in hash table based on pathname key
+            var reference = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || { requires: [] };
+            reference.sourceFile = sourceFile;
+            reference.exportedCount = exportNames.length;
+            reference.fullyQualifiedNamespace = namespace.getName();
+            if (exportNames.length > 0) {
+                reference.exportNames = exportNames.slice();
             }
-            else
-                console.error("Unhandled exported statement: " + statement.getText());
+            /*
+                    console.log(sourceFile.getFilePath() + " (namespace: "+ namespace.getName() + ")\n"
+                    + "exports: " + exportNames.length +" referenced count: "+ references.length);
+                */
         }
-        //store in hash table based on pathname key
-        var reference = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || {};
-        reference.sourceFile = sourceFile;
-        reference.exportedCount = exportNames.length;
-        reference.fullyQualifiedNamespace = namespace.getName();
-        if (exportNames.length > 0) {
-            reference.exportNames = exportNames.slice();
-        }
-        /*
-             console.log(sourceFile.getFilePath() + " (namespace: "+ namespace.getName() + ")\n"
-             + "exports: " + exportNames.length +" referenced count: "+ references.length);
-          */
     }
 });
-if (0) {
+console.log("**** Finished ****");
+if (1) {
     // UPDATE FILES
     /**************************************************************/
     console.log("\n\n\n SECOND PASS - UPDATE SOURCE\n\n");
     sourceFiles.forEach(function (sourceFile) {
-        console.log(sourceFile.getFilePath());
-        addImports(data[sourceFile.getFilePath()]);
+        if (isExcluded(sourceFile.getFilePath())) {
+            console.log("skipping: ", sourceFile.getFilePath());
+        }
+        else {
+            console.log(sourceFile.getFilePath());
+            addImports(data[sourceFile.getFilePath()]);
+        }
         //removeNamespace(sourceFile)
     });
     console.log("\n\n\n SECOND PASS - remove namespace\n\n");
     sourceFiles.forEach(function (sourceFile) {
-        removeNamespace(sourceFile);
+        if (isExcluded(sourceFile.getFilePath())) {
+            console.log("skipping: ", sourceFile.getFilePath());
+        }
+        else {
+            console.log(sourceFile.getFilePath());
+            removeNamespace(sourceFile);
+        }
     });
 }
-function refactorNames(finalIdentifier, sourceFile) {
+function isExcluded(fileyMcFileFace) {
+    if (!(fileyMcFileFace.indexOf("node_modules") == -1 &&
+        fileyMcFileFace.indexOf("wwwroot/") == -1 &&
+        fileyMcFileFace.indexOf("bower_components/") == -1 &&
+        fileyMcFileFace.indexOf("Scripts/typings/") == -1)) {
+        return true;
+    }
+}
+function refactorNames(finalIdentifier, sourceFile, thingName) {
     //find references
     var referencedSymbols = finalIdentifier.findReferences();
     var references = referencedSymbols[0].getReferences(); // probably not unique, needs to check by scriptname
@@ -94,6 +119,13 @@ function refactorNames(finalIdentifier, sourceFile) {
                 sourceFile: referenceSourceFile,
                 requires: []
             };
+        }
+        if ("ReferrerModelCreatorFactory" === thingName) {
+            console.log({
+                referenceSourceFilePath: referenceSourceFilePath,
+                thingName: thingName,
+                'data[referenceSourceFilePath]': data[referenceSourceFilePath]
+            });
         }
         if (referenceSourceFilePath != sourceFile.getFilePath()) {
             data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = 1;
@@ -109,12 +141,17 @@ function refactorNames(finalIdentifier, sourceFile) {
         }
         else {
             console.log("found:", refModule, parent.getKindName(), parent.getText(), "replace with: " + getNewQualifiedname(parent.getText()));
-            if (parent.getText() == "myenum") {
-                //something
-                console.log("enum: ", getNewQualifiedname(node.getText()));
+            var parentyMcParent = parent.getParent();
+            var parentyMcParentKind = parentyMcParent.getKind();
+            //console.log("parentyMcParentKind:",  parentyMcParent.getKindName());
+            if (parentyMcParentKind == ts.SyntaxKind.QualifiedName ||
+                parentyMcParentKind == ts.SyntaxKind.TypeReference ||
+                parentyMcParentKind == ts.SyntaxKind.PropertyAccessExpression) {
+                if (parent.getText().split('.')[0] != thingName) {
+                    parent.replaceWithText(getNewQualifiedname(parent.getText()));
+                    referenceSourceFile.save();
+                }
             }
-            parent.replaceWithText(getNewQualifiedname(parent.getText()));
-            referenceSourceFile.save();
         }
     });
 }
