@@ -28,10 +28,10 @@ export interface IRequires {
 const ast = new Ast();
 
 //add ts project
-// const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
-// ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
-const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
-ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
+ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
+// const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+// ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 
 const sourceFiles = ast.getSourceFiles();
 
@@ -45,11 +45,12 @@ var data: FileData[] = [];
 /**********************************************************/
 
 sourceFiles.forEach(function(sourceFile){
+    
     console.log("\nstart:"+sourceFile.getFilePath());
     bar.tick({filename: sourceFile.getFilePath().slice(-100)});
     bar.render();
 
-    if (isExcluded(sourceFile.getFilePath()))
+    if (isExcluded(sourceFile.getFilePath()) )
     {
         console.log("skipping: ",sourceFile.getFilePath())
     }else{
@@ -176,51 +177,92 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile, th
         
         if (referenceSourceFilePath!=sourceFile.getFilePath()){
             if(!data[referenceSourceFilePath].requires[sourceFile.getFilePath()])
-                data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = [];    
-            data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName] = true;                        
-        }
+                data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = [];  
+
+            data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName] = null;                                        
+            
+       
         
 
         
-        var node=element.getNode();
-        
-        let parent = node.getParent();
-        let parentKind=parent.getKind();
+            var node=element.getNode();
+            
+            let parent = node.getParent();
+            let parentKind=parent.getKind();
 
-        if (parentKind!=ts.SyntaxKind.QualifiedName &&
-            parentKind!=ts.SyntaxKind.TypeReference && 
-            parentKind!=ts.SyntaxKind.PropertyAccessExpression ){
-            
-            //don't change
-            console.log("nochange: ", refModule, node.getKindName(), node.getText());
-            
-        } else {
-        
-            console.log("found:",  refModule,parent.getKindName(), parent.getText(),"replace with: "+getNewQualifiedname(parent.getText()));
+            if (parentKind!=ts.SyntaxKind.QualifiedName &&
+                parentKind!=ts.SyntaxKind.TypeReference && 
+                parentKind!=ts.SyntaxKind.PropertyAccessExpression ){
+                
+                //don't change
+                console.log("nochange: ", refModule, node.getKindName(), node.getText());
+                
+            } else {
+                var newName:string;                
 
-            let parentyMcParent = parent.getParent();
-            let parentyMcParentKind=parentyMcParent.getKind();
-            
-            if (parent.getText().split('.')[0]!=thingName){
-                if (parent.getText().split('<')[0].trim()!=thingName){
-                    parent.replaceWithText(getNewQualifiedname(parent.getText()))                                  
-                    referenceSourceFile.save();
+                if(checkForDuplicateReferenceIdentifier(data[referenceSourceFilePath], sourceFile.getFilePath(),thingName)){
+                    console.log("********duplicate**********",thingName)
+                    var splitName = parent.getText().split(".");
+                    var name = splitName.splice(splitName.length-2);
+                    newName = data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName] 
+                        = toCamelCase(name);                        
+                }else{
+                    newName = getNewQualifiedname(parent.getText())
+                }
+
+
+                console.log("found:",  refModule,parent.getKindName(), parent.getText(),"replace with: "+newName);
+
+                let parentyMcParent = parent.getParent();
+                let parentyMcParentKind=parentyMcParent.getKind();
+                
+                if (parent.getText().split('.')[0]!=thingName){
+                    if (parent.getText().split('<')[0].trim()!=thingName){
+                        parent.replaceWithText(newName)                                  
+                        referenceSourceFile.save();
+                    }
                 }
             }
-
         }
     });
 
+}
+
+
+function checkForDuplicateReferenceIdentifier(fileData :FileData, sourceFilePath: string, thingName: string){
+
+    let found;
+    if (thingName=="IGarden"){
+        console.log("Debug");
+    }
+
+    for (var includeFile in fileData.requires){
+        if (includeFile!=sourceFilePath)
+        for (var name in fileData.requires[includeFile]){
+       
+            console.log(name)            
+            
+            if(name == thingName){        
+                found = true;
+                console.log("#################### found", includeFile,fileData.sourceFile.getFilePath())                        
+            }
+
+        }
+    };
+
+    return found;
 }
 
 function getKeys(array: any[]): string[] {
     const keys = [];
 
     for(var key in array){
-        keys.push(key);
+        if (array[key]){
+            keys.push(array[key]);
+        }else{
+            keys.push(key);
+        }
     }
-
-    console.log(array);
 
     return keys;
 }
@@ -235,7 +277,7 @@ function addImports(item: FileData){
                 let importString = "";
                 if (requiredItem.exportNames){
                     var modulePath=absoluteToRelativePath(requiredItem.sourceFile.getFilePath().slice(0, -3));
-                    allImports = addToExportList(modulePath,getKeys(item.requires[requiredItem.sourceFile.getFilePath()]),allImports);
+                    allImports = addToExportList(modulePath,item.requires[requiredItem.sourceFile.getFilePath()],allImports);
                     saveChanges=true;
                     //debugging only
                     requiredItem.exportNames.forEach(function(e){
@@ -269,7 +311,14 @@ function addToExportList(moduleSpecifier : string, exportNames : string[], allIm
     }
     
     for (var i in exportNames) {
-        importDeclaration.namedImports.push({name: exportNames[i]});
+        if (exportNames[i]){
+            importDeclaration.namedImports.push({name: i, alias: exportNames[i]});            
+        }
+        else{
+            importDeclaration.namedImports.push({name: i});
+            
+            console.log("-*-*-*-*-*-*-*-*-*-",{name: i, alias: exportNames[i]});
+        }
     }
     
     allImports.push(importDeclaration);

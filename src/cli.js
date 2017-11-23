@@ -13,10 +13,10 @@ var ExportType;
 // start typescript compiler api helper
 var ast = new ts_simple_ast_1.default();
 //add ts project
-// const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
-// ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
-var basePath = "C:/Users/dmeag/Source/Repos/test/VideoTour/";
-ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+var basePath = "c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/";
+ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
+// const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+// ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 var sourceFiles = ast.getSourceFiles();
 console.log("\nAnalysing source files for dependencies");
 var bar = new ProgressBar('[:bar] ETA :eta seconds ...:filename', { total: sourceFiles.length, width: 40 });
@@ -125,36 +125,69 @@ function refactorNames(finalIdentifier, sourceFile, thingName) {
         if (referenceSourceFilePath != sourceFile.getFilePath()) {
             if (!data[referenceSourceFilePath].requires[sourceFile.getFilePath()])
                 data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = [];
-            data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName] = true;
-        }
-        var node = element.getNode();
-        var parent = node.getParent();
-        var parentKind = parent.getKind();
-        if (parentKind != ts.SyntaxKind.QualifiedName &&
-            parentKind != ts.SyntaxKind.TypeReference &&
-            parentKind != ts.SyntaxKind.PropertyAccessExpression) {
-            //don't change
-            console.log("nochange: ", refModule, node.getKindName(), node.getText());
-        }
-        else {
-            console.log("found:", refModule, parent.getKindName(), parent.getText(), "replace with: " + getNewQualifiedname(parent.getText()));
-            var parentyMcParent = parent.getParent();
-            var parentyMcParentKind = parentyMcParent.getKind();
-            if (parent.getText().split('.')[0] != thingName) {
-                if (parent.getText().split('<')[0].trim() != thingName) {
-                    parent.replaceWithText(getNewQualifiedname(parent.getText()));
-                    referenceSourceFile.save();
+            data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName] = null;
+            var node = element.getNode();
+            var parent_1 = node.getParent();
+            var parentKind = parent_1.getKind();
+            if (parentKind != ts.SyntaxKind.QualifiedName &&
+                parentKind != ts.SyntaxKind.TypeReference &&
+                parentKind != ts.SyntaxKind.PropertyAccessExpression) {
+                //don't change
+                console.log("nochange: ", refModule, node.getKindName(), node.getText());
+            }
+            else {
+                var newName;
+                if (checkForDuplicateReferenceIdentifier(data[referenceSourceFilePath], sourceFile.getFilePath(), thingName)) {
+                    console.log("********duplicate**********", thingName);
+                    var splitName = parent_1.getText().split(".");
+                    var name = splitName.splice(splitName.length - 2);
+                    newName = data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName]
+                        = toCamelCase(name);
+                }
+                else {
+                    newName = getNewQualifiedname(parent_1.getText());
+                }
+                console.log("found:", refModule, parent_1.getKindName(), parent_1.getText(), "replace with: " + newName);
+                var parentyMcParent = parent_1.getParent();
+                var parentyMcParentKind = parentyMcParent.getKind();
+                if (parent_1.getText().split('.')[0] != thingName) {
+                    if (parent_1.getText().split('<')[0].trim() != thingName) {
+                        parent_1.replaceWithText(newName);
+                        referenceSourceFile.save();
+                    }
                 }
             }
         }
     });
 }
+function checkForDuplicateReferenceIdentifier(fileData, sourceFilePath, thingName) {
+    var found;
+    if (thingName == "IGarden") {
+        console.log("Debug");
+    }
+    for (var includeFile in fileData.requires) {
+        if (includeFile != sourceFilePath)
+            for (var name in fileData.requires[includeFile]) {
+                console.log(name);
+                if (name == thingName) {
+                    found = true;
+                    console.log("#################### found", includeFile, fileData.sourceFile.getFilePath());
+                }
+            }
+    }
+    ;
+    return found;
+}
 function getKeys(array) {
     var keys = [];
     for (var key in array) {
-        keys.push(key);
+        if (array[key]) {
+            keys.push(array[key]);
+        }
+        else {
+            keys.push(key);
+        }
     }
-    console.log(array);
     return keys;
 }
 function addImports(item) {
@@ -167,7 +200,7 @@ function addImports(item) {
                 var importString = "";
                 if (requiredItem.exportNames) {
                     modulePath = absoluteToRelativePath(requiredItem.sourceFile.getFilePath().slice(0, -3));
-                    allImports = addToExportList(modulePath, getKeys(item.requires[requiredItem.sourceFile.getFilePath()]), allImports);
+                    allImports = addToExportList(modulePath, item.requires[requiredItem.sourceFile.getFilePath()], allImports);
                     saveChanges = true;
                     //debugging only
                     requiredItem.exportNames.forEach(function (e) {
@@ -201,7 +234,13 @@ function addToExportList(moduleSpecifier, exportNames, allImports) {
         namedImports: []
     };
     for (var i in exportNames) {
-        importDeclaration.namedImports.push({ name: exportNames[i] });
+        if (exportNames[i]) {
+            importDeclaration.namedImports.push({ name: i, alias: exportNames[i] });
+        }
+        else {
+            importDeclaration.namedImports.push({ name: i });
+            console.log("-*-*-*-*-*-*-*-*-*-", { name: i, alias: exportNames[i] });
+        }
     }
     allImports.push(importDeclaration);
     return allImports;
