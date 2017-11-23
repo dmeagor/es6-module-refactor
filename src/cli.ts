@@ -14,19 +14,24 @@ interface FileData{
     exportedCount?:number,   
     exportType?:ExportType,
     exportNames?:string[],
-    requires?:number[]
+    requires?: IRequires[]
 }
 
+export interface IRequires {
+    [index: string]: string;
+}
 
+// todo: need to change requires from number to object containing another list of exportedNames
+// 
 
 // start typescript compiler api helper
 const ast = new Ast();
 
 //add ts project
-const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
-ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
-//const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
-//ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+// const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
+// ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
+const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 
 const sourceFiles = ast.getSourceFiles();
 
@@ -167,18 +172,15 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile, th
             }
         }
 
-        if("ReferrerModelCreatorFactory" === thingName){
-            console.log({
-                referenceSourceFilePath,
-                thingName,
-                'data[referenceSourceFilePath]': data[referenceSourceFilePath]
-            });
-        }
+
         
         if (referenceSourceFilePath!=sourceFile.getFilePath()){
-            data[referenceSourceFilePath].requires[sourceFile.getFilePath()]=1;                
+            if(!data[referenceSourceFilePath].requires[sourceFile.getFilePath()])
+                data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = [];    
+            data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName] = true;                        
         }
         
+
         
         var node=element.getNode();
         
@@ -198,19 +200,29 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile, th
 
             let parentyMcParent = parent.getParent();
             let parentyMcParentKind=parentyMcParent.getKind();
-            //console.log("parentyMcParentKind:",  parentyMcParent.getKindName());
             
-            if (parentyMcParentKind==ts.SyntaxKind.QualifiedName ||
-                parentyMcParentKind==ts.SyntaxKind.TypeReference || 
-                parentyMcParentKind==ts.SyntaxKind.PropertyAccessExpression ){ 
-            
-                    if (parent.getText().split('.')[0]!=thingName){
-                        parent.replaceWithText(getNewQualifiedname(parent.getText()))                                  
-                        referenceSourceFile.save();
-                    }
+            if (parent.getText().split('.')[0]!=thingName){
+                if (parent.getText().split('<')[0].trim()!=thingName){
+                    parent.replaceWithText(getNewQualifiedname(parent.getText()))                                  
+                    referenceSourceFile.save();
                 }
+            }
+
         }
     });
+
+}
+
+function getKeys(array: any[]): string[] {
+    const keys = [];
+
+    for(var key in array){
+        keys.push(key);
+    }
+
+    console.log(array);
+
+    return keys;
 }
 
 function addImports(item: FileData){
@@ -223,7 +235,7 @@ function addImports(item: FileData){
                 let importString = "";
                 if (requiredItem.exportNames){
                     var modulePath=absoluteToRelativePath(requiredItem.sourceFile.getFilePath().slice(0, -3));
-                    allImports = addToExportList(modulePath,requiredItem.exportNames,allImports);
+                    allImports = addToExportList(modulePath,getKeys(item.requires[requiredItem.sourceFile.getFilePath()]),allImports);
                     saveChanges=true;
                     //debugging only
                     requiredItem.exportNames.forEach(function(e){

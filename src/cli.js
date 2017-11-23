@@ -8,13 +8,15 @@ var ExportType;
     ExportType[ExportType["Single"] = 1] = "Single";
     ExportType[ExportType["Multiple"] = 2] = "Multiple";
 })(ExportType || (ExportType = {}));
+// todo: need to change requires from number to object containing another list of exportedNames
+// 
 // start typescript compiler api helper
 var ast = new ts_simple_ast_1.default();
 //add ts project
-var basePath = "c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/";
-ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
-//const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
-//ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+// const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
+// ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
+var basePath = "C:/Users/dmeag/Source/Repos/test/VideoTour/";
+ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 var sourceFiles = ast.getSourceFiles();
 console.log("\nAnalysing source files for dependencies");
 var bar = new ProgressBar('[:bar] ETA :eta seconds ...:filename', { total: sourceFiles.length, width: 40 });
@@ -120,15 +122,10 @@ function refactorNames(finalIdentifier, sourceFile, thingName) {
                 requires: []
             };
         }
-        if ("ReferrerModelCreatorFactory" === thingName) {
-            console.log({
-                referenceSourceFilePath: referenceSourceFilePath,
-                thingName: thingName,
-                'data[referenceSourceFilePath]': data[referenceSourceFilePath]
-            });
-        }
         if (referenceSourceFilePath != sourceFile.getFilePath()) {
-            data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = 1;
+            if (!data[referenceSourceFilePath].requires[sourceFile.getFilePath()])
+                data[referenceSourceFilePath].requires[sourceFile.getFilePath()] = [];
+            data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName] = true;
         }
         var node = element.getNode();
         var parent = node.getParent();
@@ -143,17 +140,22 @@ function refactorNames(finalIdentifier, sourceFile, thingName) {
             console.log("found:", refModule, parent.getKindName(), parent.getText(), "replace with: " + getNewQualifiedname(parent.getText()));
             var parentyMcParent = parent.getParent();
             var parentyMcParentKind = parentyMcParent.getKind();
-            //console.log("parentyMcParentKind:",  parentyMcParent.getKindName());
-            if (parentyMcParentKind == ts.SyntaxKind.QualifiedName ||
-                parentyMcParentKind == ts.SyntaxKind.TypeReference ||
-                parentyMcParentKind == ts.SyntaxKind.PropertyAccessExpression) {
-                if (parent.getText().split('.')[0] != thingName) {
+            if (parent.getText().split('.')[0] != thingName) {
+                if (parent.getText().split('<')[0].trim() != thingName) {
                     parent.replaceWithText(getNewQualifiedname(parent.getText()));
                     referenceSourceFile.save();
                 }
             }
         }
     });
+}
+function getKeys(array) {
+    var keys = [];
+    for (var key in array) {
+        keys.push(key);
+    }
+    console.log(array);
+    return keys;
 }
 function addImports(item) {
     if (item)
@@ -165,7 +167,7 @@ function addImports(item) {
                 var importString = "";
                 if (requiredItem.exportNames) {
                     modulePath = absoluteToRelativePath(requiredItem.sourceFile.getFilePath().slice(0, -3));
-                    allImports = addToExportList(modulePath, requiredItem.exportNames, allImports);
+                    allImports = addToExportList(modulePath, getKeys(item.requires[requiredItem.sourceFile.getFilePath()]), allImports);
                     saveChanges = true;
                     //debugging only
                     requiredItem.exportNames.forEach(function (e) {
