@@ -37,6 +37,10 @@ sourceFiles.forEach(function (sourceFile) {
             var namespace = namespaces[0];
             var nameIdentifiers = namespace.getNameIdentifiers();
             var finalIdentifier = nameIdentifiers[nameIdentifiers.length - 1];
+            //store in hash table based on pathname key
+            var reference = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || { requires: [] };
+            reference.sourceFile = sourceFile;
+            reference.fullyQualifiedNamespace = namespace.getName();
             //loop through the statements, check for exports, get names and push them into an array for later.
             var exportNames = [];
             for (var _i = 0, _a = namespace.getStatements(); _i < _a.length; _i++) {
@@ -59,11 +63,7 @@ sourceFiles.forEach(function (sourceFile) {
                 else
                     console.error("Unhandled exported statement: " + statement.getText());
             }
-            //store in hash table based on pathname key
-            var reference = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || { requires: [] };
-            reference.sourceFile = sourceFile;
             reference.exportedCount = exportNames.length;
-            reference.fullyQualifiedNamespace = namespace.getName();
             if (exportNames.length > 0) {
                 reference.exportNames = exportNames.slice();
             }
@@ -116,6 +116,7 @@ function refactorNames(finalIdentifier, sourceFile, thingName) {
         var referenceSourceFile = element.getSourceFile();
         var referenceSourceFilePath = referenceSourceFile.getFilePath();
         var refModule = absoluteToRelativePath(referenceSourceFilePath);
+        var refLastModuleIdentifier = referenceSourceFile.getNamespaces()[0].getName();
         if (!data[referenceSourceFilePath]) {
             data[referenceSourceFilePath] = {
                 sourceFile: referenceSourceFile,
@@ -141,6 +142,10 @@ function refactorNames(finalIdentifier, sourceFile, thingName) {
                     console.log("********duplicate**********", thingName);
                     var splitName = parent_1.getText().split(".");
                     var name = splitName.splice(splitName.length - 2);
+                    if (name.length == 1) {
+                        //since the name has no preceeding namespace we need to get an identifier from somewhere else.
+                        name.unshift(refLastModuleIdentifier.split('.').slice(-1)[0]);
+                    }
                     newName = data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName]
                         = toCamelCase(name);
                 }
@@ -239,7 +244,6 @@ function addToExportList(moduleSpecifier, exportNames, allImports) {
         }
         else {
             importDeclaration.namedImports.push({ name: i });
-            console.log("-*-*-*-*-*-*-*-*-*-", { name: i, alias: exportNames[i] });
         }
     }
     allImports.push(importDeclaration);
@@ -282,7 +286,7 @@ function getNewQualifiedname(old) {
 }
 function toCamelCase(o) {
     var n;
-    var capitalize = function (str) { return str.charAt(0).toUpperCase() + str.toLowerCase().slice(1); };
+    var capitalize = function (str) { return str.charAt(0).toUpperCase() + str.slice(1); };
     for (var i = 0; i < o.length; i++) {
         if (i == 0)
             n = o[i];

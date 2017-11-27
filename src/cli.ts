@@ -62,6 +62,10 @@ sourceFiles.forEach(function(sourceFile){
             var nameIdentifiers = namespace.getNameIdentifiers();
             var finalIdentifier = nameIdentifiers[nameIdentifiers.length-1];
 
+            //store in hash table based on pathname key
+            const reference : FileData = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || { requires: [] };
+            reference.sourceFile = sourceFile;
+            reference.fullyQualifiedNamespace = namespace.getName();
             
 
 
@@ -89,15 +93,8 @@ sourceFiles.forEach(function(sourceFile){
                     console.error(`Unhandled exported statement: ${statement.getText()}`);
             }
 
-
-
-
-            //store in hash table based on pathname key
-            const reference : FileData = data[sourceFile.getFilePath()] = data[sourceFile.getFilePath()] || { requires: [] };
-            
-            reference.sourceFile = sourceFile;
+                
             reference.exportedCount = exportNames.length;
-            reference.fullyQualifiedNamespace = namespace.getName();
             if (exportNames.length>0){
                 reference.exportNames=exportNames.slice();
             }
@@ -160,11 +157,14 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile, th
     const referencedSymbols = finalIdentifier.findReferences();
     var references = referencedSymbols[0].getReferences() // probably not unique, needs to check by scriptname
 
+    
+
     references.forEach(element => {      
 
         let referenceSourceFile = element.getSourceFile();
         let referenceSourceFilePath = referenceSourceFile.getFilePath();                        
-        let refModule = absoluteToRelativePath(referenceSourceFilePath);
+        let refModule = absoluteToRelativePath(referenceSourceFilePath);    
+        const refLastModuleIdentifier = referenceSourceFile.getNamespaces()[0].getName();
 
         if (!data[referenceSourceFilePath]){
             data[referenceSourceFilePath] = {
@@ -204,6 +204,10 @@ function refactorNames(finalIdentifier : Identifier, sourceFile : SourceFile, th
                     console.log("********duplicate**********",thingName)
                     var splitName = parent.getText().split(".");
                     var name = splitName.splice(splitName.length-2);
+                    if (name.length==1) {
+                        //since the name has no preceeding namespace we need to get an identifier from somewhere else.
+                        name.unshift(refLastModuleIdentifier.split('.').slice(-1)[0]);
+                    }
                     newName = data[referenceSourceFilePath].requires[sourceFile.getFilePath()][thingName] 
                         = toCamelCase(name);                        
                 }else{
@@ -315,9 +319,7 @@ function addToExportList(moduleSpecifier : string, exportNames : string[], allIm
             importDeclaration.namedImports.push({name: i, alias: exportNames[i]});            
         }
         else{
-            importDeclaration.namedImports.push({name: i});
-            
-            console.log("-*-*-*-*-*-*-*-*-*-",{name: i, alias: exportNames[i]});
+            importDeclaration.namedImports.push({name: i});            
         }
     }
     
@@ -375,7 +377,7 @@ function getNewQualifiedname(old:string){
     
     function toCamelCase(o: string[]){
         var n:string;
-        const capitalize = str => str.charAt(0).toUpperCase() + str.toLowerCase().slice(1)    
+        const capitalize = str => str.charAt(0).toUpperCase() + str.slice(1)    
     
         for(var i=0;i<o.length;i++){
             if (i==0) 
