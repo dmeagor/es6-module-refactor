@@ -13,10 +13,10 @@ var ExportType;
 // start typescript compiler api helper
 var ast = new ts_simple_ast_1.default();
 //add ts project
-var basePath = "c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/";
-ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
-// const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
-// ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+// const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
+// ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
+var basePath = "C:/Users/dmeag/Source/Repos/test/VideoTour/";
+ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 var sourceFiles = ast.getSourceFiles();
 console.log("\nAnalysing source files for dependencies");
 var bar = new ProgressBar('[:bar] ETA :eta seconds ...:filename', { total: sourceFiles.length, width: 40 });
@@ -24,11 +24,11 @@ var data = [];
 //FIRST PASS - ANALYSE LOOP.  Populate FileData object
 /**********************************************************/
 sourceFiles.forEach(function (sourceFile) {
-    console.log("\nstart:" + sourceFile.getFilePath());
+    //console.log("\nstart:"+sourceFile.getFilePath());
     bar.tick({ filename: sourceFile.getFilePath().slice(-100) });
     bar.render();
     if (isExcluded(sourceFile.getFilePath())) {
-        console.log("skipping: ", sourceFile.getFilePath());
+        //console.log("skipping: ",sourceFile.getFilePath())
     }
     else {
         var namespaces = sourceFile.getNamespaces();
@@ -50,13 +50,13 @@ sourceFiles.forEach(function (sourceFile) {
                 if (ts_simple_ast_1.TypeGuards.isVariableStatement(statement)) {
                     for (var _b = 0, _c = statement.getDeclarationList().getDeclarations(); _b < _c.length; _b++) {
                         var variableDeclaration = _c[_b];
-                        console.log("Variable: ", variableDeclaration.getName());
+                        //console.log("Variable: ",variableDeclaration.getName());
                         exportNames.push(variableDeclaration.getName());
                         refactorNames(variableDeclaration.getNameIdentifier(), sourceFile, variableDeclaration.getName());
                     }
                 }
                 else if (ts_simple_ast_1.TypeGuards.isNamedNode(statement)) {
-                    console.log("Named Node: ", statement.getName());
+                    //console.log("Named Node: ",statement.getName());
                     exportNames.push(statement.getName());
                     refactorNames(statement.getNameIdentifier(), sourceFile, statement.getName());
                 }
@@ -74,7 +74,7 @@ sourceFiles.forEach(function (sourceFile) {
         }
     }
 });
-console.log("**** Finished ****");
+//console.log("**** Finished ****")
 if (1) {
     // UPDATE FILES
     /**************************************************************/
@@ -134,12 +134,12 @@ function refactorNames(finalIdentifier, sourceFile, thingName) {
                 parentKind != ts.SyntaxKind.TypeReference &&
                 parentKind != ts.SyntaxKind.PropertyAccessExpression) {
                 //don't change
-                console.log("nochange: ", refModule, node.getKindName(), node.getText());
+                //console.log("nochange: ", refModule, node.getKindName(), node.getText());
             }
             else {
                 var newName;
                 if (checkForDuplicateReferenceIdentifier(data[referenceSourceFilePath], sourceFile.getFilePath(), thingName)) {
-                    console.log("********duplicate**********", thingName);
+                    //console.log("********duplicate**********",thingName)
                     var splitName = parent_1.getText().split(".");
                     var name = splitName.splice(splitName.length - 2);
                     if (name.length == 1) {
@@ -152,7 +152,7 @@ function refactorNames(finalIdentifier, sourceFile, thingName) {
                 else {
                     newName = getNewQualifiedname(parent_1.getText());
                 }
-                console.log("found:", refModule, parent_1.getKindName(), parent_1.getText(), "replace with: " + newName);
+                //console.log("found:",  refModule,parent.getKindName(), parent.getText(),"replace with: "+newName);
                 var parentyMcParent = parent_1.getParent();
                 var parentyMcParentKind = parentyMcParent.getKind();
                 if (parent_1.getText().split('.')[0] != thingName) {
@@ -167,16 +167,13 @@ function refactorNames(finalIdentifier, sourceFile, thingName) {
 }
 function checkForDuplicateReferenceIdentifier(fileData, sourceFilePath, thingName) {
     var found;
-    if (thingName == "IGarden") {
-        console.log("Debug");
-    }
     for (var includeFile in fileData.requires) {
         if (includeFile != sourceFilePath)
             for (var name in fileData.requires[includeFile]) {
-                console.log(name);
+                //console.log(name)            
                 if (name == thingName) {
                     found = true;
-                    console.log("#################### found", includeFile, fileData.sourceFile.getFilePath());
+                    //console.log("#################### found", includeFile,fileData.sourceFile.getFilePath())                        
                 }
             }
     }
@@ -225,12 +222,17 @@ function addImports(item) {
             }
             if (saveChanges) {
                 item.sourceFile.addImports(allImports);
-                item.sourceFile.save();
             }
         }
         else {
             console.log("sourcefile has no dependencies listed?");
         }
+    var angularImportDeclaration = {
+        moduleSpecifier: "angular",
+        namespaceImport: 'angular'
+    };
+    item.sourceFile.addImport(angularImportDeclaration);
+    item.sourceFile.save();
 }
 function addToExportList(moduleSpecifier, exportNames, allImports) {
     var addExportList = [];
