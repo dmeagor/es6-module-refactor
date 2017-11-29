@@ -8,6 +8,8 @@
   "dependencies": {
     "ts-simple-ast": "^0.79.0",
     "underscore": "1.8.3",
-    "progress": "^2.0.0"
+    "progress": "^2.0.0",
+    "cli-progress": "^1.6.0"
+    
   }
 }

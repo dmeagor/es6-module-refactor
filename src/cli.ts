@@ -28,10 +28,10 @@ export interface IRequires {
 const ast = new Ast();
 
 //add ts project
-// const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
-// ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
-const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
-ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+const basePath="C:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
+ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
+// const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+// ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 
 const sourceFiles = ast.getSourceFiles();
 
@@ -269,7 +269,7 @@ function getKeys(array: any[]): string[] {
 }
 
 function addImports(item: FileData){
-    if (item)
+    if (item){
         if (item.requires){
             var allImports : ImportDeclarationStructure[] = [];
             let saveChanges = false;
@@ -305,7 +305,7 @@ function addImports(item: FileData){
         }
         item.sourceFile.addImport(angularImportDeclaration);            
         item.sourceFile.save();
-
+    }
 }
 
 function addToExportList(moduleSpecifier : string, exportNames : string[], allImports: ImportDeclarationStructure[]) : ImportDeclarationStructure[]{

@@ -13,10 +13,10 @@ var ExportType;
 // start typescript compiler api helper
 var ast = new ts_simple_ast_1.default();
 //add ts project
-// const basePath="c:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/"
-// ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
-var basePath = "C:/Users/dmeag/Source/Repos/test/VideoTour/";
-ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
+var basePath = "C:/Users/dmeag/Source/Repos/shout/FreeSurvey.Web.Mvc/";
+ast.addSourceFiles("../shout/FreeSurvey.Web.Mvc/**/*{.d.ts,.ts}");
+// const basePath="C:/Users/dmeag/Source/Repos/test/VideoTour/"
+// ast.addSourceFiles("C:/Users/dmeag/Source/Repos/test/VideoTour/**/*{.d.ts,.ts}");
 var sourceFiles = ast.getSourceFiles();
 console.log("\nAnalysing source files for dependencies");
 var bar = new ProgressBar('[:bar] ETA :eta seconds ...:filename', { total: sourceFiles.length, width: 40 });
@@ -193,7 +193,7 @@ function getKeys(array) {
     return keys;
 }
 function addImports(item) {
-    if (item)
+    if (item) {
         if (item.requires) {
             var allImports = [];
             var saveChanges = false;
@@ -227,12 +227,13 @@ function addImports(item) {
         else {
             console.log("sourcefile has no dependencies listed?");
         }
-    var angularImportDeclaration = {
-        moduleSpecifier: "angular",
-        namespaceImport: 'angular'
-    };
-    item.sourceFile.addImport(angularImportDeclaration);
-    item.sourceFile.save();
+        var angularImportDeclaration = {
+            moduleSpecifier: "angular",
+            namespaceImport: 'angular'
+        };
+        item.sourceFile.addImport(angularImportDeclaration);
+        item.sourceFile.save();
+    }
 }
 function addToExportList(moduleSpecifier, exportNames, allImports) {
     var addExportList = [];
